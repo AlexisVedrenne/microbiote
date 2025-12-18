@@ -1,5 +1,6 @@
 import { Node } from './Node'
-import { Segment } from './Segment'
+import { Segment, applyGroupedWaterResistance } from './Segment'
+import { detectJoints } from './Joint'
 import {
   WATER_FRICTION_BASE,
   WATER_FRICTION_MASS_PENALTY,
@@ -11,8 +12,7 @@ import { generateFirstName, createFamilyName } from 'src/utils/NameGenerator'
 import { getTemperatureAt } from 'src/systems/Temperature'
 import {
   getPropulsionColor,
-  getEnergyCostMultiplier,
-  getForceMultiplier
+  getEnergyCostMultiplier
 } from 'src/systems/PropulsionSystem'
 import {
   generateRandomSequence
@@ -24,6 +24,7 @@ export class Creature {
   constructor(x, y, genes = null, parentNames = null, currentGeneration = 1) {
     this.nodes = []
     this.segments = []
+    this.joints = [] // NOUVEAU : Articulations détectées
     this.generation = currentGeneration
     this.energy = 100
     this.maxEnergy = 100
@@ -107,6 +108,10 @@ export class Creature {
     }
 
     this.calculateMass()
+
+    // NOUVEAU : Détecter les articulations après création de la structure
+    this.joints = detectJoints(this.nodes, this.segments)
+
     this.reproductionCooldown = 0
     this.prevX = this.getCenterX()
     this.prevY = this.getCenterY()
@@ -448,10 +453,8 @@ export class Creature {
     // Friction de l'eau
     const waterFriction = WATER_FRICTION_BASE - this.mass * WATER_FRICTION_MASS_PENALTY
 
-    // Traînée hydrodynamique
-    for (const seg of this.segments) {
-      seg.applyDrag()
-    }
+    // Résistance de l'eau (nouveau système avec volume déplacé)
+    applyGroupedWaterResistance(this.segments, this.nodes)
 
     // Mettre à jour nœuds
     for (const node of this.nodes) {
@@ -816,8 +819,8 @@ export class Creature {
       const bestSequence = memory.sequences.reduce((best, s) => (s.efficiency > best.efficiency ? s : best))
       memory.currentSequence = bestSequence.clone()
     } else {
-      // EXPLORATION: créer une séquence aléatoire
-      memory.currentSequence = generateRandomSequence(this.segments.length)
+      // EXPLORATION: créer une séquence aléatoire basée sur le nombre d'articulations
+      memory.currentSequence = generateRandomSequence(this.joints.length)
     }
 
     // Reset du timer et position de départ
@@ -830,7 +833,7 @@ export class Creature {
   }
 
   /**
-   * Applique la séquence motrice actuelle (PHYSIQUE À IMPULSION)
+   * Applique la séquence motrice actuelle (NOUVELLE PHYSIQUE NEWTONIENNE)
    */
   applyMotorSequence() {
     const memory = this.motorMemory
@@ -839,31 +842,23 @@ export class Creature {
       this.selectMotorSequence()
     }
 
-    // Obtenir la phase actuelle de la séquence
-    const phaseData = memory.currentSequence.getPhaseAt(memory.sequenceTimer)
+    // Obtenir la pose actuelle de la séquence (avec interpolation)
+    const poseData = memory.currentSequence.getPoseAt(memory.sequenceTimer)
 
-    if (phaseData) {
-      // NOUVEAU : Appliquer les contractions aux segments (physique à impulsion)
-      for (let i = 0; i < this.segments.length && i < phaseData.contractions.length; i++) {
-        const contractionIntensity = phaseData.contractions[i]
-        const seg = this.segments[i]
+    if (poseData && this.joints.length > 0) {
+      // NOUVELLE APPROCHE : Contracter les articulations pour atteindre la pose cible
+      let effectiveMuscleStrength = this.genes.muscleStrength
+      if (this.debuffs.slow > 0) {
+        effectiveMuscleStrength *= 0.5
+      }
 
-        // Appliquer la force d'impulsion
-        let effectiveMuscleStrength = this.genes.muscleStrength
-        if (this.debuffs.slow > 0) {
-          effectiveMuscleStrength *= 0.5
-        }
+      // Appliquer les contractions à chaque articulation
+      for (let i = 0; i < this.joints.length && i < poseData.jointContractions.length; i++) {
+        const joint = this.joints[i]
+        const targetContraction = poseData.jointContractions[i]
 
-        const forceMultiplier = this.genes.propulsionType
-          ? getForceMultiplier(this.genes.propulsionType)
-          : 2.5
-
-        seg.applyImpulseForce(
-          contractionIntensity,
-          effectiveMuscleStrength,
-          forceMultiplier,
-          this.genes.propulsionType
-        )
+        // Contraction avec force proportionnelle à la masse (comme demandé)
+        joint.applyContraction(targetContraction, effectiveMuscleStrength, this.mass)
       }
     }
 

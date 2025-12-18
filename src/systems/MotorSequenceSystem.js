@@ -1,68 +1,87 @@
 /**
- * SYSTÈME DE SÉQUENCES MOTRICES
+ * SYSTÈME DE SÉQUENCES MOTRICES - VERSION POSES
  *
- * Au lieu de mémoriser un pattern fixe, les créatures mémorisent des SÉQUENCES
- * qui se répètent en boucle (comme une méduse : contracte → propulse → glisse → contracte)
+ * Les créatures mémorisent des SÉQUENCES DE POSES (configurations spatiales)
+ * Au lieu de contractions directes, elles définissent des positions cibles pour leurs articulations
  */
 
 /**
- * Une séquence motrice est composée de plusieurs phases qui s'enchaînent
- * Chaque phase a une durée et des paramètres de contraction pour chaque segment
+ * Une séquence motrice est composée de plusieurs poses qui s'enchaînent
+ * Chaque pose définit l'état cible de toutes les articulations
  */
 export class MotorSequence {
-  constructor(segmentCount) {
-    this.segmentCount = segmentCount
-    this.phases = [] // Liste de phases qui se répètent en boucle
+  constructor(jointCount) {
+    this.jointCount = jointCount
+    this.poses = [] // Liste de poses qui se répètent en boucle
     this.efficiency = 0 // Score d'efficacité (distance / énergie)
     this.timesUsed = 0
   }
 
   /**
-   * Ajoute une phase à la séquence
-   * @param {number} duration - Durée de la phase (frames)
-   * @param {Array<number>} contractions - Intensité de contraction par segment (0-1)
+   * Ajoute une pose à la séquence
+   * @param {number} duration - Durée pour atteindre cette pose (frames)
+   * @param {Array<number>} jointContractions - Contraction cible par articulation (0-1)
+   *                                            0 = angle au repos, 1 = contracté au max
    */
-  addPhase(duration, contractions) {
-    this.phases.push({
+  addPose(duration, jointContractions) {
+    this.poses.push({
       duration,
-      contractions: [...contractions]
+      jointContractions: [...jointContractions]
     })
   }
 
   /**
-   * Obtient la phase actuelle selon le temps
+   * Obtient la pose actuelle selon le temps (avec interpolation)
    * @param {number} time - Temps depuis début de la séquence
-   * @returns {Object} - {phaseIndex, localTime, contractions}
+   * @returns {Object} - {poseIndex, localTime, jointContractions, progress}
    */
-  getPhaseAt(time) {
-    if (this.phases.length === 0) return null
+  getPoseAt(time) {
+    if (this.poses.length === 0) return null
 
     // Calculer durée totale du cycle
-    const cycleDuration = this.phases.reduce((sum, p) => sum + p.duration, 0)
+    const cycleDuration = this.poses.reduce((sum, p) => sum + p.duration, 0)
     if (cycleDuration === 0) return null
 
     // Position dans le cycle actuel
     const cycleTime = time % cycleDuration
 
-    // Trouver quelle phase
+    // Trouver quelle pose
     let accumulated = 0
-    for (let i = 0; i < this.phases.length; i++) {
-      const phase = this.phases[i]
-      if (cycleTime < accumulated + phase.duration) {
+    for (let i = 0; i < this.poses.length; i++) {
+      const pose = this.poses[i]
+      if (cycleTime < accumulated + pose.duration) {
+        const localTime = cycleTime - accumulated
+        const progress = localTime / pose.duration // 0 à 1 dans la pose
+
+        // Interpolation vers la pose suivante
+        const nextPoseIndex = (i + 1) % this.poses.length
+        const currentPose = this.poses[i].jointContractions
+        const nextPose = this.poses[nextPoseIndex].jointContractions
+
+        const interpolatedContractions = []
+        for (let j = 0; j < currentPose.length; j++) {
+          const current = currentPose[j]
+          const next = nextPose[j] || current
+          // Interpolation linéaire
+          interpolatedContractions.push(current + (next - current) * progress)
+        }
+
         return {
-          phaseIndex: i,
-          localTime: cycleTime - accumulated,
-          contractions: phase.contractions
+          poseIndex: i,
+          localTime,
+          progress,
+          jointContractions: interpolatedContractions
         }
       }
-      accumulated += phase.duration
+      accumulated += pose.duration
     }
 
-    // Fallback (ne devrait pas arriver)
+    // Fallback
     return {
-      phaseIndex: 0,
+      poseIndex: 0,
       localTime: 0,
-      contractions: this.phases[0].contractions
+      progress: 0,
+      jointContractions: this.poses[0].jointContractions
     }
   }
 
@@ -70,10 +89,10 @@ export class MotorSequence {
    * Clone la séquence
    */
   clone() {
-    const seq = new MotorSequence(this.segmentCount)
-    seq.phases = this.phases.map(p => ({
+    const seq = new MotorSequence(this.jointCount)
+    seq.poses = this.poses.map(p => ({
       duration: p.duration,
-      contractions: [...p.contractions]
+      jointContractions: [...p.jointContractions]
     }))
     seq.efficiency = this.efficiency
     seq.timesUsed = this.timesUsed
@@ -83,106 +102,26 @@ export class MotorSequence {
 
 /**
  * Génère une séquence aléatoire d'exploration
- * @param {number} segmentCount - Nombre de segments
+ * @param {number} jointCount - Nombre d'articulations
  * @returns {MotorSequence}
  */
-export function generateRandomSequence(segmentCount) {
-  const seq = new MotorSequence(segmentCount)
+export function generateRandomSequence(jointCount) {
+  const seq = new MotorSequence(jointCount)
 
-  // Générer 2-4 phases aléatoires
-  const phaseCount = 2 + Math.floor(Math.random() * 3)
+  // Générer 2-4 poses aléatoires
+  const poseCount = 2 + Math.floor(Math.random() * 3)
 
-  for (let i = 0; i < phaseCount; i++) {
-    const duration = 10 + Math.floor(Math.random() * 20) // 10-30 frames
-    const contractions = []
+  for (let i = 0; i < poseCount; i++) {
+    const duration = 15 + Math.floor(Math.random() * 25) // 15-40 frames (vitesse cohérente)
+    const jointContractions = []
 
-    // Contractions aléatoires pour chaque segment
-    for (let s = 0; s < segmentCount; s++) {
-      contractions.push(Math.random())
+    // Contractions aléatoires pour chaque articulation
+    for (let j = 0; j < jointCount; j++) {
+      jointContractions.push(Math.random())
     }
 
-    seq.addPhase(duration, contractions)
+    seq.addPose(duration, jointContractions)
   }
-
-  return seq
-}
-
-/**
- * Génère une séquence type "impulsion" (comme méduse)
- * Contracte tous ensemble → relâche → glisse
- * @param {number} segmentCount
- * @returns {MotorSequence}
- */
-export function generateImpulseSequence(segmentCount) {
-  const seq = new MotorSequence(segmentCount)
-
-  // Phase 1 : Contraction (tous contractent)
-  const contractPhase = Array(segmentCount).fill(1.0)
-  seq.addPhase(8, contractPhase)
-
-  // Phase 2 : Relâchement
-  const releasePhase = Array(segmentCount).fill(0.0)
-  seq.addPhase(5, releasePhase)
-
-  // Phase 3 : Glisse (inertie)
-  const glidePhase = Array(segmentCount).fill(0.0)
-  seq.addPhase(15, glidePhase)
-
-  return seq
-}
-
-/**
- * Génère une séquence type "vague" (comme anguille)
- * La contraction se propage du début à la fin
- * @param {number} segmentCount
- * @returns {MotorSequence}
- */
-export function generateWaveSequence(segmentCount) {
-  const seq = new MotorSequence(segmentCount)
-
-  // Créer une vague qui progresse
-  const phasesCount = segmentCount * 2
-  for (let i = 0; i < phasesCount; i++) {
-    const contractions = []
-    for (let s = 0; s < segmentCount; s++) {
-      // Fonction sinusoïdale qui progresse
-      const wave = Math.sin(((i + s) / phasesCount) * Math.PI * 2)
-      contractions.push((wave + 1) / 2) // Normaliser 0-1
-    }
-    seq.addPhase(3, contractions)
-  }
-
-  return seq
-}
-
-/**
- * Génère une séquence type "battement" (comme requin)
- * Avant rigide, arrière bat fort
- * @param {number} segmentCount
- * @returns {MotorSequence}
- */
-export function generateBeatSequence(segmentCount) {
-  const seq = new MotorSequence(segmentCount)
-
-  const frontCount = Math.floor(segmentCount * 0.6)
-
-  // Phase 1 : Battement gauche
-  const leftBeat = []
-  for (let s = 0; s < segmentCount; s++) {
-    leftBeat.push(s < frontCount ? 0.2 : 0.8)
-  }
-  seq.addPhase(12, leftBeat)
-
-  // Phase 2 : Centre
-  const center = Array(segmentCount).fill(0.3)
-  seq.addPhase(5, center)
-
-  // Phase 3 : Battement droite
-  const rightBeat = []
-  for (let s = 0; s < segmentCount; s++) {
-    rightBeat.push(s < frontCount ? 0.2 : 0.8)
-  }
-  seq.addPhase(12, rightBeat)
 
   return seq
 }
@@ -196,12 +135,12 @@ export function generateBeatSequence(segmentCount) {
 export function mutateSequence(sequence, mutationRate = 0.1) {
   const mutated = sequence.clone()
 
-  for (const phase of mutated.phases) {
-    for (let i = 0; i < phase.contractions.length; i++) {
+  for (const pose of mutated.poses) {
+    for (let i = 0; i < pose.jointContractions.length; i++) {
       if (Math.random() < mutationRate) {
         // Petite variation
-        phase.contractions[i] += (Math.random() - 0.5) * 0.3
-        phase.contractions[i] = Math.max(0, Math.min(1, phase.contractions[i]))
+        pose.jointContractions[i] += (Math.random() - 0.5) * 0.3
+        pose.jointContractions[i] = Math.max(0, Math.min(1, pose.jointContractions[i]))
       }
     }
   }
@@ -216,27 +155,27 @@ export function mutateSequence(sequence, mutationRate = 0.1) {
  * @returns {MotorSequence}
  */
 export function fuseSequences(seq1, seq2) {
-  const segmentCount = Math.max(seq1.segmentCount, seq2.segmentCount)
-  const fused = new MotorSequence(segmentCount)
+  const jointCount = Math.max(seq1.jointCount, seq2.jointCount)
+  const fused = new MotorSequence(jointCount)
 
-  // Prendre phases alternées des deux parents
-  const maxPhases = Math.max(seq1.phases.length, seq2.phases.length)
+  // Prendre poses alternées des deux parents
+  const maxPoses = Math.max(seq1.poses.length, seq2.poses.length)
 
-  for (let i = 0; i < maxPhases; i++) {
+  for (let i = 0; i < maxPoses; i++) {
     const useSeq1 = i % 2 === 0
 
-    if (useSeq1 && i < seq1.phases.length) {
-      const phase = seq1.phases[i]
-      fused.addPhase(phase.duration, phase.contractions)
-    } else if (!useSeq1 && i < seq2.phases.length) {
-      const phase = seq2.phases[i]
-      fused.addPhase(phase.duration, phase.contractions)
+    if (useSeq1 && i < seq1.poses.length) {
+      const pose = seq1.poses[i]
+      fused.addPose(pose.duration, pose.jointContractions)
+    } else if (!useSeq1 && i < seq2.poses.length) {
+      const pose = seq2.poses[i]
+      fused.addPose(pose.duration, pose.jointContractions)
     }
   }
 
-  // Garantir au moins 2 phases
-  if (fused.phases.length < 2) {
-    return generateRandomSequence(segmentCount)
+  // Garantir au moins 2 poses
+  if (fused.poses.length < 2) {
+    return generateRandomSequence(jointCount)
   }
 
   return fused

@@ -88,7 +88,7 @@ export function detectPropulsionType(behaviorData) {
  * @returns {Object} - Caractéristiques extraites
  */
 export function analyzeSequenceCharacteristics(sequence) {
-  if (!sequence || sequence.phases.length === 0) {
+  if (!sequence || sequence.poses.length === 0) {
     return null
   }
 
@@ -99,10 +99,10 @@ export function analyzeSequenceCharacteristics(sequence) {
   let totalContinuity = 0
   let sampleCount = 0
 
-  // Analyser chaque phase
-  for (let i = 0; i < sequence.phases.length; i++) {
-    const phase = sequence.phases[i]
-    const contractions = phase.contractions
+  // Analyser chaque pose
+  for (let i = 0; i < sequence.poses.length; i++) {
+    const pose = sequence.poses[i]
+    const contractions = pose.jointContractions
 
     // SYNCHRONISATION : Variance des contractions (faible variance = haute sync)
     const avg = contractions.reduce((a, b) => a + b, 0) / contractions.length
@@ -118,14 +118,14 @@ export function analyzeSequenceCharacteristics(sequence) {
     waveScore /= contractions.length
     const waveProgression = Math.min(1.0, waveScore * 2)
 
-    // IMPULSIVITÉ : Changement brusque entre phases
+    // IMPULSIVITÉ : Changement brusque entre poses
     let impulsiveness = 0
     if (i > 0) {
-      const prevPhase = sequence.phases[i - 1]
-      for (let j = 0; j < Math.min(contractions.length, prevPhase.contractions.length); j++) {
-        impulsiveness += Math.abs(contractions[j] - prevPhase.contractions[j])
+      const prevPose = sequence.poses[i - 1]
+      for (let j = 0; j < Math.min(contractions.length, prevPose.jointContractions.length); j++) {
+        impulsiveness += Math.abs(contractions[j] - prevPose.jointContractions[j])
       }
-      impulsiveness /= Math.min(contractions.length, prevPhase.contractions.length)
+      impulsiveness /= Math.min(contractions.length, prevPose.jointContractions.length)
     }
 
     // SYMÉTRIE : Comparaison gauche vs droite (segments pairs vs impairs)
@@ -146,8 +146,8 @@ export function analyzeSequenceCharacteristics(sequence) {
     const rightAvg = rightCount > 0 ? rightSum / rightCount : 0
     const symmetry = 1.0 - Math.min(1.0, Math.abs(leftAvg - rightAvg) * 2)
 
-    // CONTINUITÉ : Durée de la phase (longue = continue)
-    const continuity = Math.min(1.0, phase.duration / 30)
+    // CONTINUITÉ : Durée de la pose (longue = continue)
+    const continuity = Math.min(1.0, pose.duration / 30)
 
     totalSynchronization += synchronization
     totalWaveProgression += waveProgression
@@ -165,7 +165,7 @@ export function analyzeSequenceCharacteristics(sequence) {
     avgImpulsiveness: totalImpulsiveness / sampleCount,
     avgSymmetry: totalSymmetry / sampleCount,
     avgContinuity: totalContinuity / sampleCount,
-    segmentCount: sequence.segmentCount
+    segmentCount: sequence.jointCount // Utiliser jointCount
   }
 }
 
