@@ -1,6 +1,6 @@
 <template>
-  <DraggablePanel :initial-x="20" :initial-y="20" max-width="340px">
-    <h2 class="title">🦠 Évolution Microbienne</h2>
+  <DraggablePanel :initial-x="20" :initial-y="20"  width="400px">
+    <q-expansion-item  header-class="title" label="🦠 Évolution Microbienne">
 
     <div class="row items-center q-gutter-sm">
       <q-btn
@@ -82,6 +82,7 @@
         @update:model-value="store.setSpeed"
       />
     </div>
+    </q-expansion-item>
   </DraggablePanel>
 </template>
 
@@ -96,8 +97,8 @@ const emit = defineEmits(['reset', 'addFood'])
 <style scoped lang="sass">
 .title
   margin: 0 0 15px 0
-  color: #00ffff
-  text-shadow: 0 0 15px rgba(0, 255, 255, 0.8)
+  color: #90d5ff
+  text-shadow: 0 0 10px rgba(100, 200, 255, 0.6)
   font-size: 20px
 
 .button-group
@@ -109,19 +110,19 @@ const emit = defineEmits(['reset', 'addFood'])
     flex: 1
 
 .stat-group
-  background: rgba(0, 30, 50, 0.6)
+  background: rgba(20, 60, 90, 0.5)
   padding: 12px
   border-radius: 8px
   margin: 10px 0
-  border-left: 3px solid #00ffff
+  border-left: 3px solid rgba(100, 200, 255, 0.6)
 
 .section-title
-  color: #ff6b9d
+  color: #90d5ff
   font-weight: bold
   margin-bottom: 8px
 
   &.danger
-    color: #ff6b6b
+    color: #ff8888
 
 .stat-line
   display: flex
@@ -130,14 +131,14 @@ const emit = defineEmits(['reset', 'addFood'])
   font-size: 13px
 
 .stat-label
-  color: #66d9ff
+  color: #b0e0ff
 
 .stat-value
-  color: #00ff88
+  color: #80e5ff
   font-weight: bold
 
   &.danger
-    color: #ff6b6b
+    color: #ff8888
 
 .speed-control
   margin-top: 10px

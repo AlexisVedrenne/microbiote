@@ -63,26 +63,8 @@ export const useSimulationStore = defineStore('simulation', () => {
     }
   })
 
-  const topCreatures = computed(() => {
-    return [...creatures.value].sort((a, b) => b.calculateScore() - a.calculateScore()).slice(0, 10)
-  })
-
-  const topFamilies = computed(() => {
-    // Recalculer les familles
-    const familiesMap = new Map()
-    for (const creature of creatures.value) {
-      if (creature.familyName) {
-        if (!familiesMap.has(creature.familyName)) {
-          familiesMap.set(creature.familyName, { members: [], totalScore: 0, births: 0 })
-        }
-        const family = familiesMap.get(creature.familyName)
-        family.members.push(creature)
-        family.totalScore += creature.calculateScore()
-      }
-    }
-
-    return [...familiesMap.entries()].sort((a, b) => b[1].totalScore - a[1].totalScore).slice(0, 10)
-  })
+  // État de sélection pour affichage détails
+  const selectedCreature = ref(null)
 
   // Actions
   function logEvent(type, message) {
@@ -126,6 +108,14 @@ export const useSimulationStore = defineStore('simulation', () => {
     simulationSpeed.value = speed
   }
 
+  function selectCreature(creature) {
+    selectedCreature.value = creature
+  }
+
+  function unselectCreature() {
+    selectedCreature.value = null
+  }
+
   return {
     // État
     creatures,
@@ -142,20 +132,21 @@ export const useSimulationStore = defineStore('simulation', () => {
     events,
     families,
     evolutionMemory,
+    selectedCreature,
 
     // Getters
     population,
     foodCount,
     timeLeft,
     avgStats,
-    topCreatures,
-    topFamilies,
 
     // Actions
     logEvent,
     recordDeath,
     reset,
     togglePause,
-    setSpeed
+    setSpeed,
+    selectCreature,
+    unselectCreature
   }
 })

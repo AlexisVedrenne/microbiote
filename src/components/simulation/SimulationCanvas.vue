@@ -27,14 +27,14 @@ const canvasWidth = ref(window.innerWidth)
 const canvasHeight = ref(window.innerHeight)
 
 const store = useSimulationStore()
-const { camera, isDragging, startDrag, moveDrag, endDrag, zoom, screenToWorld } = useCamera(
+const { camera, isDragging, startDrag, moveDrag, endDrag, zoom, screenToWorld, focusOn } = useCamera(
   canvasWidth.value,
   canvasHeight.value
 )
 
 const canvasStyle = computed(() => ({
   display: 'block',
-  background: 'radial-gradient(circle at center, #0a1628 0%, #000000 100%)',
+  background: 'radial-gradient(circle at center, #1a4d6d 0%, #0a2540 100%)',
   cursor: isDragging.value ? 'grabbing' : 'grab'
 }))
 
@@ -45,8 +45,8 @@ function draw() {
   const ctx = canvas.getContext('2d')
   if (!ctx) return
 
-  // Fond noir
-  ctx.fillStyle = '#000'
+  // Fond bleu aquatique
+  ctx.fillStyle = '#0d3a52'
   ctx.fillRect(0, 0, canvas.width, canvas.height)
 
   ctx.save()
@@ -55,20 +55,28 @@ function draw() {
   ctx.scale(camera.value.zoom, camera.value.zoom)
   ctx.translate(-camera.value.x, -camera.value.y)
 
-  // Gradient de température
+  // Fond de l'eau avec gradient aquatique
+  const waterGradient = ctx.createLinearGradient(0, 0, 0, WORLD_HEIGHT)
+  waterGradient.addColorStop(0, '#3a7ca5')    // Bleu clair en haut (chaud)
+  waterGradient.addColorStop(0.5, '#2f6690') // Bleu moyen
+  waterGradient.addColorStop(1, '#16425b')    // Bleu foncé en bas (froid)
+  ctx.fillStyle = waterGradient
+  ctx.fillRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT)
+
+  // Gradient de température (plus subtil et aquatique)
   const gradientSteps = 50
   const stepHeight = WORLD_HEIGHT / gradientSteps
 
   for (let i = 0; i < gradientSteps; i++) {
     const y = i * stepHeight
     ctx.fillStyle = getTemperatureColor(y)
-    ctx.globalAlpha = 0.15
+    ctx.globalAlpha = 0.08
     ctx.fillRect(0, y, WORLD_WIDTH, stepHeight)
   }
   ctx.globalAlpha = 1.0
 
-  // Bordures du monde
-  ctx.strokeStyle = 'rgba(0, 255, 255, 0.3)'
+  // Bordures du monde (cyan aquatique)
+  ctx.strokeStyle = 'rgba(100, 200, 255, 0.5)'
   ctx.lineWidth = 3 / camera.value.zoom
   ctx.strokeRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT)
 
@@ -86,7 +94,8 @@ function draw() {
 }
 
 defineExpose({
-  draw
+  draw,
+  focusOn
 })
 
 function onMouseDown(e) {

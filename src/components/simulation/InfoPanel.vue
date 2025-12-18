@@ -1,6 +1,6 @@
 <template>
   <DraggablePanel :initial-x="windowWidth - 320" :initial-y="20" max-width="280px">
-    <div class="info-title">💡 Règles</div>
+    <q-expansion-item default-opened  header-class="info-title" label="💡 Règles">
     <div class="info-content">
       • Microbes avec structure libre évolutive<br />
       • Segments qui s'étirent/contractent pour nager<br />
@@ -11,6 +11,7 @@
       • Gros = lent, petit = rapide<br />
       • Clic = ajouter nourriture
     </div>
+    </q-expansion-item>
   </DraggablePanel>
 </template>
 
@@ -23,19 +24,19 @@ const windowWidth = ref(window.innerWidth)
 
 <style scoped lang="sass">
 .info-title
-  color: #00ffff
+  color: #90d5ff
   font-weight: bold
   margin-bottom: 8px
   font-size: 14px
 
 .info-content
-  color: #99e6ff
+  color: #d0f0ff
   line-height: 1.6
   font-size: 11px
 
 .highlight-green
-  color: #00ff88
+  color: #66ffaa
 
 .highlight-magenta
-  color: #ff00ff
+  color: #ff66ff
 </style>

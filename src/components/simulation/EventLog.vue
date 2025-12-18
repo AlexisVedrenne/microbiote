@@ -1,5 +1,5 @@
 <template>
-  <DraggablePanel :initial-x="20" :initial-y="windowHeight - 250" max-width="280px" max-height="200px">
+  <DraggablePanel :initial-x="20" :initial-y="windowHeight - 250" max-width="280px" height="300px">
     <div class="log-title">📜 Journal</div>
     <div class="events-container">
       <div
@@ -25,7 +25,7 @@ const windowHeight = ref(window.innerHeight)
 
 <style scoped lang="sass">
 .log-title
-  color: #00ffff
+  color: #90d5ff
   font-weight: bold
   margin-bottom: 8px
   font-size: 14px
@@ -43,19 +43,19 @@ const windowHeight = ref(window.innerHeight)
   line-height: 1.4
 
   &.birth
-    border-color: #00ff88
-    color: #00ff88
+    border-color: #66ffaa
+    color: #66ffaa
 
   &.death
-    border-color: #ff6b6b
-    color: #ff6b6b
+    border-color: #ff8888
+    color: #ff8888
 
   &.cannibalism
-    border-color: #ff00ff
-    color: #ff00ff
+    border-color: #ff66ff
+    color: #ff66ff
 
 .no-events
-  color: #666
+  color: #5599aa
   font-style: italic
   text-align: center
   padding: 20px

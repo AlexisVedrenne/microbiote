@@ -84,12 +84,13 @@ function stopDrag() {
 
 <style scoped lang="sass">
 .draggable-panel
-  background: rgba(5, 10, 20, 0.95)
+  background: rgba(10, 40, 65, 0.92)
   padding: 20px
   border-radius: 15px
-  color: #00ffff
-  border: 2px solid rgba(0, 255, 255, 0.3)
-  box-shadow: 0 0 30px rgba(0, 200, 255, 0.3)
+  color: #ffffff
+  border: 2px solid rgba(100, 200, 255, 0.4)
+  box-shadow: 0 0 30px rgba(58, 124, 165, 0.5)
+  backdrop-filter: blur(8px)
   user-select: none
   overflow-y: auto
   overflow-x: hidden
@@ -98,13 +99,13 @@ function stopDrag() {
     width: 8px
 
   &::-webkit-scrollbar-track
-    background: rgba(0, 0, 0, 0.3)
+    background: rgba(0, 50, 80, 0.4)
     border-radius: 4px
 
   &::-webkit-scrollbar-thumb
-    background: rgba(0, 255, 255, 0.3)
+    background: rgba(100, 200, 255, 0.4)
     border-radius: 4px
 
     &:hover
-      background: rgba(0, 255, 255, 0.5)
+      background: rgba(100, 200, 255, 0.6)
 </style>

@@ -64,6 +64,18 @@ export class Creature {
       energyLost: 0
     }
 
+    // Mémoire motrice pour l'apprentissage
+    this.motorMemory = {
+      patterns: genes?.motorPatterns || [], // Patterns appris (max 10)
+      currentPattern: null, // Pattern en cours de test
+      patternStartPos: { x: 0, y: 0 },
+      patternStartTime: 0,
+      patternDuration: 30, // Durée d'un pattern en frames
+      patternTimer: 0,
+      learningRate: 0.3, // Probabilité d'explorer vs exploiter
+      inherited: genes?.motorPatterns ? true : false // Si patterns hérités
+    }
+
     if (genes && genes.structure) {
       this.createFromStructure(x, y, genes.structure)
     } else {
@@ -183,6 +195,9 @@ export class Creature {
     if (this.debuffs.slow > 0) this.debuffs.slow--
     if (this.debuffs.poison > 0) this.debuffs.poison--
 
+    // APPRENTISSAGE MOTEUR: sélectionner et appliquer un pattern
+    this.applyMotorPattern()
+
     // EFFET DE LA TEMPÉRATURE
     const centerY = this.getCenterY()
     const currentTemp = getTemperatureAt(centerY)
@@ -294,6 +309,7 @@ export class Creature {
       fertility: this.genes.fertility,
       preferredTemp: this.genes.preferredTemp,
       thermalTolerance: this.genes.thermalTolerance,
+      motorPatterns: this.getMotorPatterns(), // Patterns moteurs appris
       structure: {
         nodeCount: this.nodes.length,
         nodeOffsets: nodeOffsets,
@@ -369,6 +385,125 @@ export class Creature {
       ctx.font = 'bold 10px Arial'
       ctx.fillText('☠️', cx + 10, debuffY)
     }
+  }
+
+  // ========== SYSTÈME D'APPRENTISSAGE MOTEUR ==========
+
+  /**
+   * Sélectionne ou crée un nouveau pattern de mouvement
+   */
+  selectMotorPattern() {
+    const memory = this.motorMemory
+
+    // Si on a des patterns appris, décider entre exploration et exploitation
+    if (memory.patterns.length > 0 && Math.random() > memory.learningRate) {
+      // EXPLOITATION: choisir le meilleur pattern appris
+      const bestPattern = memory.patterns.reduce((best, p) => (p.efficiency > best.efficiency ? p : best))
+      memory.currentPattern = { ...bestPattern }
+    } else {
+      // EXPLORATION: créer un pattern aléatoire
+      memory.currentPattern = {
+        segmentPhases: this.segments.map(() => Math.random() * Math.PI * 2),
+        efficiency: 0,
+        timesUsed: 0
+      }
+    }
+
+    // Reset du timer et position de départ
+    memory.patternTimer = 0
+    memory.patternStartPos = {
+      x: this.getCenterX(),
+      y: this.getCenterY()
+    }
+    memory.patternStartTime = this.age
+  }
+
+  /**
+   * Applique le pattern moteur actuel
+   */
+  applyMotorPattern() {
+    const memory = this.motorMemory
+
+    if (!memory.currentPattern) {
+      this.selectMotorPattern()
+    }
+
+    // Appliquer les phases du pattern aux segments
+    for (let i = 0; i < this.segments.length; i++) {
+      if (memory.currentPattern.segmentPhases[i] !== undefined) {
+        this.segments[i].phase = memory.currentPattern.segmentPhases[i]
+      }
+    }
+
+    memory.patternTimer++
+
+    // Fin du pattern: évaluer et mémoriser
+    if (memory.patternTimer >= memory.patternDuration) {
+      this.evaluateMotorPattern()
+      this.selectMotorPattern()
+    }
+  }
+
+  /**
+   * Évalue l'efficacité du pattern actuel
+   */
+  evaluateMotorPattern() {
+    const memory = this.motorMemory
+    if (!memory.currentPattern) return
+
+    // Calculer le déplacement réel
+    const endX = this.getCenterX()
+    const endY = this.getCenterY()
+    const distance = Math.sqrt(
+      (endX - memory.patternStartPos.x) ** 2 + (endY - memory.patternStartPos.y) ** 2
+    )
+
+    // Calculer l'énergie dépensée pendant le pattern
+    const energySpent = this.stats.energyLost
+
+    // Efficacité = distance / (énergie dépensée + 1)
+    // On favorise les patterns qui font beaucoup de distance avec peu d'énergie
+    const efficiency = distance / (energySpent * 0.1 + 1)
+
+    memory.currentPattern.efficiency = efficiency
+    memory.currentPattern.timesUsed++
+
+    // Ajouter ou mettre à jour le pattern dans la mémoire
+    const existingIndex = memory.patterns.findIndex((p) => {
+      // Comparer les patterns (similaires si phases proches)
+      if (p.segmentPhases.length !== memory.currentPattern.segmentPhases.length) return false
+      let diff = 0
+      for (let i = 0; i < p.segmentPhases.length; i++) {
+        diff += Math.abs(p.segmentPhases[i] - memory.currentPattern.segmentPhases[i])
+      }
+      return diff < 0.5 // Seuil de similarité
+    })
+
+    if (existingIndex >= 0) {
+      // Pattern similaire existe: mise à jour de l'efficacité (moyenne pondérée)
+      const existing = memory.patterns[existingIndex]
+      existing.efficiency =
+        (existing.efficiency * existing.timesUsed + efficiency) / (existing.timesUsed + 1)
+      existing.timesUsed++
+    } else if (efficiency > 0.5) {
+      // Nouveau pattern intéressant: l'ajouter
+      memory.patterns.push({ ...memory.currentPattern })
+
+      // Garder seulement les 10 meilleurs patterns
+      if (memory.patterns.length > 10) {
+        memory.patterns.sort((a, b) => b.efficiency - a.efficiency)
+        memory.patterns = memory.patterns.slice(0, 10)
+      }
+    }
+  }
+
+  /**
+   * Récupère les patterns moteurs pour héritage
+   */
+  getMotorPatterns() {
+    // Retourner les 5 meilleurs patterns
+    const sorted = [...this.motorMemory.patterns].sort((a, b) => b.efficiency - a.efficiency)
+    return sorted.slice(0, 5)
   }
 
   // Méthodes évolution et reproduction ajoutées dans les prochains fichiers

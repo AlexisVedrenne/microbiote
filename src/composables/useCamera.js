@@ -66,6 +66,16 @@ export function useCamera(canvasWidth, canvasHeight) {
     }
   }
 
+  function focusOn(worldX, worldY) {
+    // Centrer la caméra sur la position donnée
+    camera.value.x = worldX - canvasWidth / (2 * camera.value.zoom)
+    camera.value.y = worldY - canvasHeight / (2 * camera.value.zoom)
+
+    // Limiter caméra dans le monde
+    camera.value.x = Math.max(0, Math.min(WORLD_WIDTH - canvasWidth / camera.value.zoom, camera.value.x))
+    camera.value.y = Math.max(0, Math.min(WORLD_HEIGHT - canvasHeight / camera.value.zoom, camera.value.y))
+  }
+
   return {
     camera,
     isDragging,
@@ -73,6 +83,7 @@ export function useCamera(canvasWidth, canvasHeight) {
     moveDrag,
     endDrag,
     zoom,
-    screenToWorld
+    screenToWorld,
+    focusOn
   }
 }
