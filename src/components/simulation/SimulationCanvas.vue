@@ -10,11 +10,12 @@
     @mouseleave="onMouseLeave"
     @wheel.prevent="onWheel"
     @click="onClick"
+    @contextmenu.prevent
   ></canvas>
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed, defineExpose } from 'vue'
 import { useSimulationStore } from 'src/stores/simulation'
 import { useCamera } from 'src/composables/useCamera'
 import { WORLD_WIDTH, WORLD_HEIGHT } from 'src/utils/Constants'
@@ -36,8 +37,6 @@ const canvasStyle = computed(() => ({
   background: 'radial-gradient(circle at center, #0a1628 0%, #000000 100%)',
   cursor: isDragging.value ? 'grabbing' : 'grab'
 }))
-
-let animationFrameId = null
 
 function draw() {
   const canvas = canvasRef.value
@@ -84,9 +83,11 @@ function draw() {
   }
 
   ctx.restore()
-
-  animationFrameId = requestAnimationFrame(draw)
 }
+
+defineExpose({
+  draw
+})
 
 function onMouseDown(e) {
   const clickedOnUI = e.target.closest('.draggable-panel')
@@ -137,14 +138,10 @@ function onResize() {
 
 onMounted(() => {
   window.addEventListener('resize', onResize)
-  draw()
 })
 
 onUnmounted(() => {
   window.removeEventListener('resize', onResize)
-  if (animationFrameId) {
-    cancelAnimationFrame(animationFrameId)
-  }
 })
 </script>
 

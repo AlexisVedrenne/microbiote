@@ -1,4 +1,3 @@
-import { onMounted, onUnmounted } from 'vue'
 import { useSimulationStore } from 'src/stores/simulation'
 import { Creature } from 'src/classes/Creature'
 import { Food } from 'src/classes/Food'
@@ -272,16 +271,19 @@ export function useSimulation() {
     return newStruct
   }
 
-  function gameLoop() {
+  function gameLoop(drawCallback) {
     for (let i = 0; i < store.simulationSpeed; i++) {
       update()
     }
-    animationFrameId = requestAnimationFrame(gameLoop)
+    if (drawCallback) {
+      drawCallback()
+    }
+    animationFrameId = requestAnimationFrame(() => gameLoop(drawCallback))
   }
 
-  function start() {
+  function start(drawCallback) {
     init()
-    gameLoop()
+    gameLoop(drawCallback)
   }
 
   function stop() {
@@ -290,14 +292,6 @@ export function useSimulation() {
       animationFrameId = null
     }
   }
-
-  onMounted(() => {
-    start()
-  })
-
-  onUnmounted(() => {
-    stop()
-  })
 
   return {
     init,

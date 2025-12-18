@@ -2,14 +2,18 @@
   <DraggablePanel :initial-x="20" :initial-y="20" max-width="340px">
     <h2 class="title">🦠 Évolution Microbienne</h2>
 
-    <div class="button-group">
+    <div class="row items-center q-gutter-sm">
       <q-btn
-        :label="store.isPaused ? '▶️ Play' : '⏸️ Pause'"
+        dense
+        
+        no-caps 
+        :label="store.isPaused ? 'Play' : 'Pause'"
         color="primary"
         @click="store.togglePause()"
+        :icon="store.isPaused ? 'play_arrow' : 'pause'"
       />
-      <q-btn label="🔄 Reset" color="negative" @click="emit('reset')" />
-      <q-btn label="🍃 +Nourriture" color="positive" @click="emit('addFood')" />
+      <q-btn  dense icon="replay" no-caps label="Reset" color="negative" @click="emit('reset')" />
+      <q-btn  dense icon="food_bank" no-caps  label="+Nourriture" color="positive" @click="emit('addFood')" />
     </div>
 
     <div class="stat-group">
