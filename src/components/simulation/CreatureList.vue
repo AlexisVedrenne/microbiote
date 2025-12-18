@@ -28,7 +28,7 @@
         >
           <q-item-section>
             <q-item-label class="creature-name">
-              {{ getPropulsionEmoji(creature.genes.propulsionType) }} {{ creature.firstName }}
+              {{ getPropulsionEmojiSafe(creature.genes.propulsionType) }} {{ creature.firstName }}
             </q-item-label>
             <q-item-label v-if="creature.familyName" caption class="creature-family">
               {{ creature.familyName }}
@@ -63,7 +63,7 @@ import { ref, computed, defineEmits } from 'vue'
 import { useSimulationStore } from 'src/stores/simulation'
 import DraggablePanel from 'src/components/ui/DraggablePanel.vue'
 import CreatureDetails from './CreatureDetails.vue'
-import { getPropulsionEmoji } from 'src/systems/PropulsionSystem'
+import { getPropulsionEmojiSafe } from 'src/systems/PropulsionSystem'
 
 const store = useSimulationStore()
 const windowWidth = ref(window.innerWidth)

@@ -132,49 +132,61 @@
                 <q-item-section>
                   <q-item-label class="label-title">Type de Nage</q-item-label>
                   <q-item-label caption class="label-desc">
-                    Stratégie de propulsion. Détermine le style de mouvement, la vitesse et l'efficacité énergétique.
+                    {{ creature.genes.propulsionType ? 'Stratégie de propulsion découverte par l\'apprentissage' : 'La créature explore différents mouvements pour découvrir son type' }}
                   </q-item-label>
-                  <q-item-label class="label-value q-mt-sm">
-                    {{ getPropulsionEmoji(creature.genes.propulsionType) }} {{ getPropulsionName(creature.genes.propulsionType) }}
-                  </q-item-label>
-                </q-item-section>
-              </q-item>
-
-              <q-item>
-                <q-item-section>
-                  <q-item-label class="label-title">Description</q-item-label>
-                  <q-item-label class="label-value q-mt-sm">
-                    {{ getPropulsionConfig(creature.genes.propulsionType).description }}
+                  <q-item-label class="label-value q-mt-sm" :class="{ 'text-grey-6': !creature.genes.propulsionType }">
+                    {{ getPropulsionEmojiSafe(creature.genes.propulsionType) }} {{ getPropulsionNameSafe(creature.genes.propulsionType) }}
                   </q-item-label>
                 </q-item-section>
               </q-item>
 
-              <q-item>
-                <q-item-section>
-                  <q-item-label class="label-title">Caractéristiques</q-item-label>
-                  <q-item-label caption class="label-desc q-mt-sm">
-                    Multiplicateur de force: ×{{ getPropulsionConfig(creature.genes.propulsionType).forceMultiplier.toFixed(1) }}
-                  </q-item-label>
-                  <q-item-label caption class="label-desc">
-                    Coût énergétique: ×{{ getPropulsionConfig(creature.genes.propulsionType).energyCost.toFixed(1) }}
-                  </q-item-label>
-                  <q-item-label caption class="label-desc">
-                    Potentiel de vitesse: {{ (getPropulsionConfig(creature.genes.propulsionType).speedPotential * 100).toFixed(0) }}%
-                  </q-item-label>
-                  <q-item-label caption class="label-desc">
-                    Maniabilité: {{ (getPropulsionConfig(creature.genes.propulsionType).maneuverability * 100).toFixed(0) }}%
-                  </q-item-label>
-                </q-item-section>
-              </q-item>
+              <!-- Afficher détails seulement si type découvert -->
+              <template v-if="creature.genes.propulsionType">
+                <q-item>
+                  <q-item-section>
+                    <q-item-label class="label-title">Description</q-item-label>
+                    <q-item-label class="label-value q-mt-sm">
+                      {{ getPropulsionConfig(creature.genes.propulsionType).description }}
+                    </q-item-label>
+                  </q-item-section>
+                </q-item>
 
-              <q-item>
+                <q-item>
+                  <q-item-section>
+                    <q-item-label class="label-title">Caractéristiques</q-item-label>
+                    <q-item-label caption class="label-desc q-mt-sm">
+                      Multiplicateur de force: ×{{ getPropulsionConfig(creature.genes.propulsionType).forceMultiplier.toFixed(1) }}
+                    </q-item-label>
+                    <q-item-label caption class="label-desc">
+                      Coût énergétique: ×{{ getPropulsionConfig(creature.genes.propulsionType).energyCost.toFixed(1) }}
+                    </q-item-label>
+                    <q-item-label caption class="label-desc">
+                      Potentiel de vitesse: {{ (getPropulsionConfig(creature.genes.propulsionType).speedPotential * 100).toFixed(0) }}%
+                    </q-item-label>
+                    <q-item-label caption class="label-desc">
+                      Maniabilité: {{ (getPropulsionConfig(creature.genes.propulsionType).maneuverability * 100).toFixed(0) }}%
+                    </q-item-label>
+                  </q-item-section>
+                </q-item>
+
+                <q-item>
+                  <q-item-section>
+                    <q-item-label class="label-title">Fréquence d'Oscillation</q-item-label>
+                    <q-item-label caption class="label-desc">
+                      Vitesse des battements. Varie selon le type de propulsion.
+                    </q-item-label>
+                    <q-item-label class="label-value q-mt-sm">
+                      {{ getPropulsionConfig(creature.genes.propulsionType).baseFrequency.toFixed(3) }} ± {{ getPropulsionConfig(creature.genes.propulsionType).frequencyVariance.toFixed(3) }}
+                    </q-item-label>
+                  </q-item-section>
+                </q-item>
+              </template>
+
+              <!-- Message si pas encore découvert -->
+              <q-item v-else>
                 <q-item-section>
-                  <q-item-label class="label-title">Fréquence d'Oscillation</q-item-label>
-                  <q-item-label caption class="label-desc">
-                    Vitesse des battements. Varie selon le type de propulsion.
-                  </q-item-label>
-                  <q-item-label class="label-value q-mt-sm">
-                    {{ getPropulsionConfig(creature.genes.propulsionType).baseFrequency.toFixed(3) }} ± {{ getPropulsionConfig(creature.genes.propulsionType).frequencyVariance.toFixed(3) }}
+                  <q-item-label caption class="text-grey-6 q-mt-sm">
+                    💡 Le type de cette créature sera automatiquement détecté après avoir testé suffisamment de mouvements ({{ creature.motorMemory.sequences.length }}/5 séquences explorées)
                   </q-item-label>
                 </q-item-section>
               </q-item>
@@ -582,7 +594,7 @@
 
 <script setup>
 import { ref, watch } from 'vue'
-import { getPropulsionConfig, getPropulsionEmoji, getPropulsionName } from 'src/systems/PropulsionSystem'
+import { getPropulsionConfig, getPropulsionEmojiSafe, getPropulsionNameSafe } from 'src/systems/PropulsionSystem'
 
 const props = defineProps({
   modelValue: Boolean,

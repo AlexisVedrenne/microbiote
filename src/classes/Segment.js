@@ -14,10 +14,15 @@ export class Segment {
     return Math.sqrt(dx * dx + dy * dy)
   }
 
-  applyForces(time, muscleStrength = 1, forceMultiplier = 2.5, propulsionType = 'UNDULATION') {
-    // Contraction musculaire (oscillation)
-    const contraction = Math.sin(time * this.frequency + this.phase) * this.strength * muscleStrength
-
+  /**
+   * Applique une force basée sur la contraction musculaire (0-1)
+   * NOUVEAU SYSTÈME : Physique à impulsion
+   * @param {number} contractionIntensity - Intensité de contraction (0-1)
+   * @param {number} muscleStrength - Force musculaire globale
+   * @param {number} forceMultiplier - Multiplicateur de force
+   * @param {string} propulsionType - Type de propulsion (optionnel, pour orientation)
+   */
+  applyImpulseForce(contractionIntensity, muscleStrength = 1, forceMultiplier = 2.5, propulsionType = null) {
     // Direction du segment
     const dx = this.node2.x - this.node1.x
     const dy = this.node2.y - this.node1.y
@@ -32,31 +37,36 @@ export class Segment {
     const perpX = -ny
     const perpY = nx
 
-    // Force de battement (modulée par le type de propulsion)
-    const beatForce = contraction * forceMultiplier
+    // Force basée sur l'intensité de contraction
+    const force = contractionIntensity * muscleStrength * forceMultiplier
+
+    // Si pas de type défini, utiliser force perpendiculaire par défaut
+    if (!propulsionType) {
+      this.node1.applyForce(perpX * force, perpY * force)
+      this.node2.applyForce(-perpX * force, -perpY * force)
+      return
+    }
 
     // PHYSIQUE DIFFÉRENTE SELON LE TYPE
     switch (propulsionType) {
       case 'UNDULATION': {
-        // ONDULATION : Pousse dans la direction du segment lui-même (vague progressive)
-        // Chaque segment pousse "en arrière" pour propulser le corps "en avant"
-        const pushForce = beatForce * 0.8
+        // ONDULATION : Pousse dans la direction du segment (vague progressive)
+        const pushForce = force * 0.8
         this.node1.applyForce(-nx * pushForce, -ny * pushForce)
         this.node2.applyForce(nx * pushForce, ny * pushForce)
         break
       }
 
       case 'OSCILLATION': {
-        // OSCILLATION : Battement latéral fort (comme requin)
-        this.node1.applyForce(perpX * beatForce, perpY * beatForce)
-        this.node2.applyForce(-perpX * beatForce, -perpY * beatForce)
+        // OSCILLATION : Battement latéral fort
+        this.node1.applyForce(perpX * force, perpY * force)
+        this.node2.applyForce(-perpX * force, -perpY * force)
         break
       }
 
       case 'JET': {
-        // JET : Contraction synchronisée qui expulse "l'eau" en arrière
-        // Tous les segments poussent vers l'extérieur/intérieur
-        const jetForce = beatForce * 1.2
+        // JET : Expulsion radiale (comme méduse)
+        const jetForce = force * 1.2
         this.node1.applyForce(-perpX * jetForce, -perpY * jetForce)
         this.node2.applyForce(perpX * jetForce, perpY * jetForce)
         break
@@ -64,14 +74,14 @@ export class Segment {
 
       case 'ROWING': {
         // RAMES : Alternance gauche/droite
-        this.node1.applyForce(perpX * beatForce, perpY * beatForce)
-        this.node2.applyForce(-perpX * beatForce, -perpY * beatForce)
+        this.node1.applyForce(perpX * force, perpY * force)
+        this.node2.applyForce(-perpX * force, -perpY * force)
         break
       }
 
       case 'VIBRATION': {
-        // VIBRATION : Petits mouvements rapides dans toutes les directions
-        const vibForce = beatForce * 0.6
+        // VIBRATION : Petits mouvements rapides
+        const vibForce = force * 0.6
         this.node1.applyForce(perpX * vibForce, perpY * vibForce)
         this.node2.applyForce(-perpX * vibForce, -perpY * vibForce)
         break
@@ -79,8 +89,8 @@ export class Segment {
 
       default: {
         // Par défaut : perpendiculaire
-        this.node1.applyForce(perpX * beatForce, perpY * beatForce)
-        this.node2.applyForce(-perpX * beatForce, -perpY * beatForce)
+        this.node1.applyForce(perpX * force, perpY * force)
+        this.node2.applyForce(-perpX * force, -perpY * force)
       }
     }
   }

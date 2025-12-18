@@ -4,20 +4,21 @@ import {
   WATER_FRICTION_BASE,
   WATER_FRICTION_MASS_PENALTY,
   FERTILITY_WINDOW_DURATION,
-  CONSTRAINT_ITERATIONS
+  CONSTRAINT_ITERATIONS,
+  PROPULSION_TYPES
 } from 'src/utils/Constants'
 import { generateFirstName, createFamilyName } from 'src/utils/NameGenerator'
 import { getTemperatureAt } from 'src/systems/Temperature'
 import {
-  getRandomPropulsionType,
   getPropulsionColor,
   getEnergyCostMultiplier,
-  getForceMultiplier,
-  getSegmentFrequency,
-  generatePropulsionPattern,
-  constrainPatternToType
+  getForceMultiplier
 } from 'src/systems/PropulsionSystem'
-import { PROPULSION_TYPES } from 'src/utils/Constants'
+import {
+  generateRandomSequence
+  // MotorSequence, mutateSequence, fuseSequences - TODO: utiliser pour reproduction
+} from 'src/systems/MotorSequenceSystem'
+import { analyzeCreatureBehavior } from 'src/systems/BehaviorAnalysisSystem'
 
 export class Creature {
   constructor(x, y, genes = null, parentNames = null, currentGeneration = 1) {
@@ -49,11 +50,17 @@ export class Creature {
       fertility: 1.0,
       preferredTemp: 15 + Math.random() * 10,
       thermalTolerance: 5.0,
-      propulsionType: getRandomPropulsionType() // Type de nage
+      propulsionType: null // NOUVEAU : Pas de type au départ, sera déterminé par comportement
     }
 
-    // Couleur basée sur le type de propulsion
-    if (!genes) {
+    // Couleur : grise au départ, changera quand type sera détecté
+    if (!genes || !this.genes.propulsionType) {
+      this.color = {
+        r: 150,
+        g: 150,
+        b: 150
+      }
+    } else {
       this.color = getPropulsionColor(this.genes.propulsionType)
     }
 
@@ -80,16 +87,17 @@ export class Creature {
       energyLost: 0
     }
 
-    // Mémoire motrice pour l'apprentissage
+    // NOUVEAU SYSTÈME : Mémoire motrice avec séquences
     this.motorMemory = {
-      patterns: genes?.motorPatterns || [], // Patterns appris (max 10)
-      currentPattern: null, // Pattern en cours de test
-      patternStartPos: { x: 0, y: 0 },
-      patternStartTime: 0,
-      patternDuration: 30, // Durée d'un pattern en frames
-      patternTimer: 0,
+      sequences: genes?.motorSequences || [], // Séquences apprises (max 10)
+      currentSequence: null, // Séquence en cours de test
+      sequenceStartPos: { x: 0, y: 0 },
+      sequenceStartTime: 0,
+      sequenceTimer: 0,
+      sequenceEvaluationDuration: 90, // Évaluer sur 90 frames (1.5 secondes)
       learningRate: 0.3, // Probabilité d'explorer vs exploiter
-      inherited: genes?.motorPatterns ? true : false // Si patterns hérités
+      inherited: genes?.motorSequences ? true : false, // Si séquences héritées
+      typeDetectionAttempted: false // Si on a déjà tenté de détecter le type
     }
 
     if (genes && genes.structure) {
@@ -105,6 +113,57 @@ export class Creature {
   }
 
   createRandom(x, y) {
+    // NOUVEAU : Forme aléatoire simple au départ (pas de type prédéfini)
+    // La forme sera adaptée plus tard selon le type découvert
+    const segmentCount = 3 + Math.floor(Math.random() * 4) // 3-6 segments
+    const angle = Math.random() * Math.PI * 2
+    const baseLength = 18 + Math.random() * 10
+
+    // Créer une chaîne linéaire simple
+    this.nodes.push(new Node(x, y))
+
+    for (let i = 0; i < segmentCount; i++) {
+      const prevNode = this.nodes[this.nodes.length - 1]
+      const length = baseLength + (Math.random() - 0.5) * 8
+      const angleVariation = (Math.random() - 0.5) * 0.3
+
+      const newNode = new Node(
+        prevNode.x + Math.cos(angle + angleVariation) * length,
+        prevNode.y + Math.sin(angle + angleVariation) * length
+      )
+      this.nodes.push(newNode)
+
+      this.segments.push(
+        new Segment(
+          prevNode,
+          newNode,
+          0.2 + Math.random() * 0.3,
+          Math.random() * Math.PI * 2,
+          0.07 // Fréquence par défaut
+        )
+      )
+    }
+
+    // Garantir minimum 3 nœuds
+    if (this.nodes.length < 3) {
+      const lastNode = this.nodes[this.nodes.length - 1]
+      const newAngle = Math.random() * Math.PI * 2
+      const length = 15 + Math.random() * 25
+
+      const newNode = new Node(
+        lastNode.x + Math.cos(newAngle) * length,
+        lastNode.y + Math.sin(newAngle) * length
+      )
+      this.nodes.push(newNode)
+
+      this.segments.push(
+        new Segment(lastNode, newNode, 0.2 + Math.random() * 0.3, Math.random() * Math.PI * 2, 0.07)
+      )
+    }
+  }
+
+  /* ANCIENNE VERSION avec types prédéfinis - TEMPORAIREMENT DÉSACTIVÉE
+  createRandomWithType(x, y) {
     const propulsionType = this.genes.propulsionType
 
     // FORMES DIFFÉRENTES SELON LE TYPE DE PROPULSION
@@ -294,10 +353,11 @@ export class Creature {
       this.nodes.push(newNode)
 
       this.segments.push(
-        new Segment(lastNode, newNode, 0.2 + Math.random() * 0.3, Math.random() * Math.PI * 2, getSegmentFrequency(propulsionType))
+        new Segment(lastNode, newNode, 0.2 + Math.random() * 0.3, Math.random() * Math.PI * 2, 0.07)
       )
     }
   }
+  */
 
   createFromStructure(x, y, structure) {
     this.color = { ...structure.color }
@@ -361,8 +421,8 @@ export class Creature {
     if (this.debuffs.slow > 0) this.debuffs.slow--
     if (this.debuffs.poison > 0) this.debuffs.poison--
 
-    // APPRENTISSAGE MOTEUR: sélectionner et appliquer un pattern
-    this.applyMotorPattern()
+    // NOUVEAU : APPRENTISSAGE MOTEUR avec séquences (applique aussi les forces)
+    this.applyMotorSequence()
 
     // EFFET DE LA TEMPÉRATURE
     const centerY = this.getCenterY()
@@ -376,25 +436,17 @@ export class Creature {
       tempPenalty = 1.0 + overshoot * 0.05
     }
 
-    // Coût énergétique (ajusté par type de propulsion)
-    const propulsionCostMultiplier = getEnergyCostMultiplier(this.genes.propulsionType)
+    // Coût énergétique (ajusté par type de propulsion si détecté)
+    const propulsionCostMultiplier = this.genes.propulsionType
+      ? getEnergyCostMultiplier(this.genes.propulsionType)
+      : 1.0 // Par défaut si pas encore détecté
+
     const metabolismCost = this.mass * 0.008 * this.genes.metabolicEfficiency * tempPenalty * propulsionCostMultiplier
     this.energy -= metabolismCost
     this.stats.energyLost += metabolismCost
 
     // Friction de l'eau
     const waterFriction = WATER_FRICTION_BASE - this.mass * WATER_FRICTION_MASS_PENALTY
-
-    // Appliquer forces segments
-    let effectiveMuscleStrength = this.genes.muscleStrength
-    if (this.debuffs.slow > 0) {
-      effectiveMuscleStrength *= 0.5
-    }
-
-    const forceMultiplier = getForceMultiplier(this.genes.propulsionType)
-    for (const seg of this.segments) {
-      seg.applyForces(this.age, effectiveMuscleStrength, forceMultiplier, this.genes.propulsionType)
-    }
 
     // Traînée hydrodynamique
     for (const seg of this.segments) {
@@ -477,8 +529,8 @@ export class Creature {
       fertility: this.genes.fertility,
       preferredTemp: this.genes.preferredTemp,
       thermalTolerance: this.genes.thermalTolerance,
-      propulsionType: this.genes.propulsionType, // Type de nage
-      motorPatterns: this.getMotorPatterns(), // Patterns moteurs appris
+      propulsionType: this.genes.propulsionType, // Type de nage (peut être null)
+      motorSequences: this.getMotorSequences(), // NOUVEAU : Séquences motrices apprises
       structure: {
         nodeCount: this.nodes.length,
         nodeOffsets: nodeOffsets,
@@ -750,130 +802,151 @@ export class Creature {
     }
   }
 
-  // ========== SYSTÈME D'APPRENTISSAGE MOTEUR ==========
+  // ========== NOUVEAU SYSTÈME D'APPRENTISSAGE MOTEUR (SÉQUENCES) ==========
 
   /**
-   * Sélectionne ou crée un nouveau pattern de mouvement
+   * Sélectionne ou crée une nouvelle séquence motrice
    */
-  selectMotorPattern() {
+  selectMotorSequence() {
     const memory = this.motorMemory
 
-    // Si on a des patterns appris, décider entre exploration et exploitation
-    if (memory.patterns.length > 0 && Math.random() > memory.learningRate) {
-      // EXPLOITATION: choisir le meilleur pattern appris
-      const bestPattern = memory.patterns.reduce((best, p) => (p.efficiency > best.efficiency ? p : best))
-      memory.currentPattern = { ...bestPattern }
+    // Si on a des séquences apprises, décider entre exploration et exploitation
+    if (memory.sequences.length > 0 && Math.random() > memory.learningRate) {
+      // EXPLOITATION: choisir la meilleure séquence apprise
+      const bestSequence = memory.sequences.reduce((best, s) => (s.efficiency > best.efficiency ? s : best))
+      memory.currentSequence = bestSequence.clone()
     } else {
-      // EXPLORATION: créer un pattern basé sur le type de propulsion avec variations
-      let basePattern = generatePropulsionPattern(this.genes.propulsionType, this.segments.length)
-
-      // Ajouter des variations aléatoires (±20% pour exploration)
-      basePattern = basePattern.map(phase => phase + (Math.random() - 0.5) * Math.PI * 0.4)
-
-      // Contraindre le pattern selon les règles du type
-      const constrainedPattern = constrainPatternToType(this.genes.propulsionType, basePattern)
-
-      memory.currentPattern = {
-        segmentPhases: constrainedPattern,
-        efficiency: 0,
-        timesUsed: 0
-      }
+      // EXPLORATION: créer une séquence aléatoire
+      memory.currentSequence = generateRandomSequence(this.segments.length)
     }
 
     // Reset du timer et position de départ
-    memory.patternTimer = 0
-    memory.patternStartPos = {
+    memory.sequenceTimer = 0
+    memory.sequenceStartPos = {
       x: this.getCenterX(),
       y: this.getCenterY()
     }
-    memory.patternStartTime = this.age
+    memory.sequenceStartTime = this.age
   }
 
   /**
-   * Applique le pattern moteur actuel
+   * Applique la séquence motrice actuelle (PHYSIQUE À IMPULSION)
    */
-  applyMotorPattern() {
+  applyMotorSequence() {
     const memory = this.motorMemory
 
-    if (!memory.currentPattern) {
-      this.selectMotorPattern()
+    if (!memory.currentSequence) {
+      this.selectMotorSequence()
     }
 
-    // Appliquer les phases du pattern aux segments
-    for (let i = 0; i < this.segments.length; i++) {
-      if (memory.currentPattern.segmentPhases[i] !== undefined) {
-        this.segments[i].phase = memory.currentPattern.segmentPhases[i]
+    // Obtenir la phase actuelle de la séquence
+    const phaseData = memory.currentSequence.getPhaseAt(memory.sequenceTimer)
+
+    if (phaseData) {
+      // NOUVEAU : Appliquer les contractions aux segments (physique à impulsion)
+      for (let i = 0; i < this.segments.length && i < phaseData.contractions.length; i++) {
+        const contractionIntensity = phaseData.contractions[i]
+        const seg = this.segments[i]
+
+        // Appliquer la force d'impulsion
+        let effectiveMuscleStrength = this.genes.muscleStrength
+        if (this.debuffs.slow > 0) {
+          effectiveMuscleStrength *= 0.5
+        }
+
+        const forceMultiplier = this.genes.propulsionType
+          ? getForceMultiplier(this.genes.propulsionType)
+          : 2.5
+
+        seg.applyImpulseForce(
+          contractionIntensity,
+          effectiveMuscleStrength,
+          forceMultiplier,
+          this.genes.propulsionType
+        )
       }
     }
 
-    memory.patternTimer++
+    memory.sequenceTimer++
 
-    // Fin du pattern: évaluer et mémoriser
-    if (memory.patternTimer >= memory.patternDuration) {
-      this.evaluateMotorPattern()
-      this.selectMotorPattern()
+    // Fin de l'évaluation: mémoriser et sélectionner nouvelle séquence
+    if (memory.sequenceTimer >= memory.sequenceEvaluationDuration) {
+      this.evaluateMotorSequence()
+      this.selectMotorSequence()
+
+      // Tentative de détection du type (après suffisamment de données)
+      if (!this.genes.propulsionType && !memory.typeDetectionAttempted) {
+        this.attemptTypeDetection()
+      }
     }
   }
 
   /**
-   * Évalue l'efficacité du pattern actuel
+   * Évalue l'efficacité de la séquence actuelle
    */
-  evaluateMotorPattern() {
+  evaluateMotorSequence() {
     const memory = this.motorMemory
-    if (!memory.currentPattern) return
+    if (!memory.currentSequence) return
 
     // Calculer le déplacement réel
     const endX = this.getCenterX()
     const endY = this.getCenterY()
     const distance = Math.sqrt(
-      (endX - memory.patternStartPos.x) ** 2 + (endY - memory.patternStartPos.y) ** 2
+      (endX - memory.sequenceStartPos.x) ** 2 + (endY - memory.sequenceStartPos.y) ** 2
     )
 
-    // Calculer l'énergie dépensée pendant le pattern
-    const energySpent = this.stats.energyLost
+    // Calculer l'énergie dépensée pendant la séquence
+    const energySpentDuringSequence = this.stats.energyLost - (memory.energyAtSequenceStart || 0)
 
     // Efficacité = distance / (énergie dépensée + 1)
-    // On favorise les patterns qui font beaucoup de distance avec peu d'énergie
-    const efficiency = distance / (energySpent * 0.1 + 1)
+    const efficiency = distance / (energySpentDuringSequence * 0.1 + 1)
 
-    memory.currentPattern.efficiency = efficiency
-    memory.currentPattern.timesUsed++
+    memory.currentSequence.efficiency = efficiency
+    memory.currentSequence.timesUsed++
 
-    // Ajouter ou mettre à jour le pattern dans la mémoire
-    const existingIndex = memory.patterns.findIndex((p) => {
-      // Comparer les patterns (similaires si phases proches)
-      if (p.segmentPhases.length !== memory.currentPattern.segmentPhases.length) return false
-      let diff = 0
-      for (let i = 0; i < p.segmentPhases.length; i++) {
-        diff += Math.abs(p.segmentPhases[i] - memory.currentPattern.segmentPhases[i])
-      }
-      return diff < 0.5 // Seuil de similarité
-    })
+    // Sauvegarder énergie pour prochaine évaluation
+    memory.energyAtSequenceStart = this.stats.energyLost
 
-    if (existingIndex >= 0) {
-      // Pattern similaire existe: mise à jour de l'efficacité (moyenne pondérée)
-      const existing = memory.patterns[existingIndex]
-      existing.efficiency =
-        (existing.efficiency * existing.timesUsed + efficiency) / (existing.timesUsed + 1)
-      existing.timesUsed++
-    } else if (efficiency > 0.5) {
-      // Nouveau pattern intéressant: l'ajouter
-      memory.patterns.push({ ...memory.currentPattern })
+    // Ajouter la séquence à la mémoire (garder les 10 meilleures)
+    if (efficiency > 0.5) {
+      memory.sequences.push(memory.currentSequence.clone())
 
-      // Garder seulement les 10 meilleurs patterns
-      if (memory.patterns.length > 10) {
-        memory.patterns.sort((a, b) => b.efficiency - a.efficiency)
-        memory.patterns = memory.patterns.slice(0, 10)
+      // Garder seulement les 10 meilleures séquences
+      if (memory.sequences.length > 10) {
+        memory.sequences.sort((a, b) => b.efficiency - a.efficiency)
+        memory.sequences = memory.sequences.slice(0, 10)
       }
     }
   }
 
   /**
-   * Récupère les patterns moteurs pour héritage
+   * Tente de détecter automatiquement le type de propulsion
+   * basé sur le comportement observé
    */
-  getMotorPatterns() {
-    // Retourner les 5 meilleurs patterns
-    const sorted = [...this.motorMemory.patterns].sort((a, b) => b.efficiency - a.efficiency)
+  attemptTypeDetection() {
+    const memory = this.motorMemory
+
+    const detectedType = analyzeCreatureBehavior(memory)
+
+    if (detectedType) {
+      // Type détecté !
+      this.genes.propulsionType = detectedType
+      this.color = getPropulsionColor(detectedType)
+      memory.typeDetectionAttempted = true
+
+      console.log(`🔍 ${this.firstName} a découvert son type: ${detectedType}`)
+    } else if (memory.sequences.length >= 8) {
+      // Essayé mais pas assez confiant, réessayer plus tard
+      memory.typeDetectionAttempted = false
+    }
+  }
+
+  /**
+   * Récupère les séquences motrices pour héritage
+   */
+  getMotorSequences() {
+    // Retourner les 5 meilleures séquences
+    const sorted = [...this.motorMemory.sequences].sort((a, b) => b.efficiency - a.efficiency)
     return sorted.slice(0, 5)
   }
 

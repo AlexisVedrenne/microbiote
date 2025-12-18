@@ -71,6 +71,26 @@ export function getRandomPropulsionType() {
 }
 
 /**
+ * Retourne l'emoji pour un type (ou ? si null)
+ * @param {string|null} type
+ * @returns {string}
+ */
+export function getPropulsionEmojiSafe(type) {
+  if (!type) return '❓' // Type pas encore découvert
+  return PROPULSION_CONFIGS[type]?.emoji || '❓'
+}
+
+/**
+ * Retourne le nom pour un type (ou "En découverte..." si null)
+ * @param {string|null} type
+ * @returns {string}
+ */
+export function getPropulsionNameSafe(type) {
+  if (!type) return 'En découverte...'
+  return PROPULSION_CONFIGS[type]?.name || 'Inconnu'
+}
+
+/**
  * Fusionne deux types de propulsion lors de la reproduction
  * Si les deux parents ont le même type, l'enfant hérite du même
  * Sinon, 50% chance de prendre un des deux
