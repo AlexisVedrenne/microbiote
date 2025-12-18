@@ -1,0 +1,140 @@
+<template>
+  <DraggablePanel :initial-x="20" :initial-y="20" max-width="340px">
+    <h2 class="title">🦠 Évolution Microbienne</h2>
+
+    <div class="button-group">
+      <q-btn
+        :label="store.isPaused ? '▶️ Play' : '⏸️ Pause'"
+        color="primary"
+        @click="store.togglePause()"
+      />
+      <q-btn label="🔄 Reset" color="negative" @click="emit('reset')" />
+      <q-btn label="🍃 +Nourriture" color="positive" @click="emit('addFood')" />
+    </div>
+
+    <div class="stat-group">
+      <div class="stat-line">
+        <span class="stat-label">Génération max:</span>
+        <span class="stat-value">{{ store.currentGeneration }}</span>
+      </div>
+      <div class="stat-line">
+        <span class="stat-label">Population:</span>
+        <span class="stat-value">{{ store.population }}</span>
+      </div>
+      <div class="stat-line">
+        <span class="stat-label">Nourriture:</span>
+        <span class="stat-value">{{ store.foodCount }}</span>
+      </div>
+      <div class="stat-line">
+        <span class="stat-label">Temps:</span>
+        <span class="stat-value">{{ store.timeLeft }}s</span>
+      </div>
+    </div>
+
+    <div class="stat-group">
+      <div class="section-title">📊 Moyennes</div>
+      <div class="stat-line">
+        <span class="stat-label">Taille:</span>
+        <span class="stat-value">{{ store.avgStats.size }}</span>
+      </div>
+      <div class="stat-line">
+        <span class="stat-label">Segments:</span>
+        <span class="stat-value">{{ store.avgStats.segments }}</span>
+      </div>
+      <div class="stat-line">
+        <span class="stat-label">Vitesse:</span>
+        <span class="stat-value">{{ store.avgStats.speed }}</span>
+      </div>
+      <div class="stat-line">
+        <span class="stat-label">Génération moy:</span>
+        <span class="stat-value">{{ store.avgStats.generation }}</span>
+      </div>
+    </div>
+
+    <div class="stat-group">
+      <div class="section-title danger">☠️ Statistiques</div>
+      <div class="stat-line">
+        <span class="stat-label">Naissances:</span>
+        <span class="stat-value">{{ store.totalBirths }}</span>
+      </div>
+      <div class="stat-line">
+        <span class="stat-label">Morts (faim):</span>
+        <span class="stat-value danger">{{ store.totalStarvations }}</span>
+      </div>
+      <div class="stat-line">
+        <span class="stat-label">Cannibalismes:</span>
+        <span class="stat-value">{{ store.totalCannibalisms }}</span>
+      </div>
+    </div>
+
+    <div class="speed-control">
+      <div class="stat-label">Vitesse: {{ store.simulationSpeed }}x</div>
+      <q-slider
+        v-model="store.simulationSpeed"
+        :min="1"
+        :max="5"
+        :step="1"
+        color="cyan"
+        @update:model-value="store.setSpeed"
+      />
+    </div>
+  </DraggablePanel>
+</template>
+
+<script setup>
+import { useSimulationStore } from 'src/stores/simulation'
+import DraggablePanel from 'src/components/ui/DraggablePanel.vue'
+
+const store = useSimulationStore()
+const emit = defineEmits(['reset', 'addFood'])
+</script>
+
+<style scoped lang="sass">
+.title
+  margin: 0 0 15px 0
+  color: #00ffff
+  text-shadow: 0 0 15px rgba(0, 255, 255, 0.8)
+  font-size: 20px
+
+.button-group
+  display: flex
+  gap: 5px
+  margin-bottom: 10px
+
+  .q-btn
+    flex: 1
+
+.stat-group
+  background: rgba(0, 30, 50, 0.6)
+  padding: 12px
+  border-radius: 8px
+  margin: 10px 0
+  border-left: 3px solid #00ffff
+
+.section-title
+  color: #ff6b9d
+  font-weight: bold
+  margin-bottom: 8px
+
+  &.danger
+    color: #ff6b6b
+
+.stat-line
+  display: flex
+  justify-content: space-between
+  margin: 6px 0
+  font-size: 13px
+
+.stat-label
+  color: #66d9ff
+
+.stat-value
+  color: #00ff88
+  font-weight: bold
+
+  &.danger
+    color: #ff6b6b
+
+.speed-control
+  margin-top: 10px
+</style>
