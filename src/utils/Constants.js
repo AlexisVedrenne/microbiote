@@ -93,3 +93,79 @@ export const CAMERA_ZOOM_INTENSITY = 0.1
 
 // UI
 export const MAX_EVENTS = 10
+
+// Types de propulsion
+export const PROPULSION_TYPES = {
+  UNDULATION: 'UNDULATION',     // Ondulation (anguille)
+  OSCILLATION: 'OSCILLATION',   // Battement caudale (requin)
+  JET: 'JET',                   // Jet propulsion (méduse)
+  ROWING: 'ROWING',             // Rames (tortue)
+  VIBRATION: 'VIBRATION'        // Vibration rapide (hippocampe)
+}
+
+// Configuration de chaque type de propulsion
+export const PROPULSION_CONFIGS = {
+  UNDULATION: {
+    name: 'Ondulation',
+    emoji: '🐍',
+    color: { r: 100, g: 200, b: 255 },      // Bleu clair
+    baseFrequency: 0.07,                     // Fréquence moyenne
+    frequencyVariance: 0.03,                 // Variance ±
+    forceMultiplier: 2.5,                    // Force de battement
+    energyCost: 1.0,                         // Coût énergétique normal
+    speedPotential: 1.0,                     // Vitesse potentielle
+    maneuverability: 1.0,                    // Maniabilité
+    description: 'Vague qui parcourt le corps - Équilibré'
+  },
+  OSCILLATION: {
+    name: 'Oscillation',
+    emoji: '🦈',
+    color: { r: 50, g: 150, b: 255 },       // Bleu foncé
+    baseFrequency: 0.05,                     // Plus lent
+    frequencyVariance: 0.02,
+    forceMultiplier: 4.0,                    // Très puissant
+    energyCost: 1.3,                         // Coûteux
+    speedPotential: 1.5,                     // Très rapide
+    maneuverability: 0.6,                    // Peu maniable
+    description: 'Battement puissant - Rapide mais rigide'
+  },
+  JET: {
+    name: 'Jet',
+    emoji: '🪼',
+    color: { r: 200, g: 100, b: 255 },      // Violet
+    baseFrequency: 0.03,                     // Très lent (impulsions)
+    frequencyVariance: 0.01,
+    forceMultiplier: 6.0,                    // Impulsions fortes
+    energyCost: 1.4,                         // Très coûteux
+    speedPotential: 0.8,                     // Moyen par à-coups
+    maneuverability: 1.5,                    // Très maniable
+    description: 'Impulsions synchronisées - Agile mais coûteux'
+  },
+  ROWING: {
+    name: 'Rame',
+    emoji: '🐢',
+    color: { r: 150, g: 200, b: 150 },      // Vert
+    baseFrequency: 0.06,
+    frequencyVariance: 0.02,
+    forceMultiplier: 1.8,                    // Force modérée
+    energyCost: 0.7,                         // Très efficace
+    speedPotential: 0.7,                     // Lent
+    maneuverability: 0.9,                    // Stable
+    description: 'Rames latérales - Lent mais très efficace'
+  },
+  VIBRATION: {
+    name: 'Vibration',
+    emoji: '🐠',
+    color: { r: 255, g: 200, b: 100 },      // Orange
+    baseFrequency: 0.15,                     // Très rapide
+    frequencyVariance: 0.05,
+    forceMultiplier: 1.2,                    // Force faible
+    energyCost: 0.9,                         // Assez efficace
+    speedPotential: 0.5,                     // Très lent
+    maneuverability: 1.3,                    // Très précis
+    description: 'Vibrations rapides - Précis et stable'
+  }
+}
+
+// Probabilité de mutation du type de propulsion
+export const PROPULSION_MUTATION_RATE = 0.05 // 5%

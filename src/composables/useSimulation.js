@@ -3,6 +3,7 @@ import { Creature } from 'src/classes/Creature'
 import { Food } from 'src/classes/Food'
 import { WORLD_WIDTH, WORLD_HEIGHT, GENERATION_DURATION, DEATH_CAUSES, FOOD_TYPES } from 'src/utils/Constants'
 import { evolveCreature, seekFood, seekMate, checkCannibalism } from 'src/utils/CreatureHelpers'
+import { fusePropulsionTypes } from 'src/systems/PropulsionSystem'
 
 export function useSimulation() {
   const store = useSimulationStore()
@@ -176,6 +177,7 @@ export function useSimulation() {
       fertility: (creature.genes.fertility + partner.genes.fertility) / 2,
       preferredTemp: (creature.genes.preferredTemp + partner.genes.preferredTemp) / 2,
       thermalTolerance: (creature.genes.thermalTolerance + partner.genes.thermalTolerance) / 2,
+      propulsionType: fusePropulsionTypes(creature.genes.propulsionType, partner.genes.propulsionType), // Fusion avec 5% mutation
       structure: mergeStructures(creature.getGenes().structure, partner.getGenes().structure)
     }
 

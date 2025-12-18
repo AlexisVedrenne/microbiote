@@ -20,6 +20,7 @@
         >
           <q-tab name="identity" label="👤 Identité" />
           <q-tab name="vital" label="💚 Vital" />
+          <q-tab name="propulsion" label="🏊 Propulsion" />
           <q-tab name="physical" label="🧬 Physique" />
           <q-tab name="genes" label="🧪 Gènes" />
           <q-tab name="reproduction" label="💕 Reproduction" />
@@ -118,6 +119,62 @@
                   </q-item-label>
                   <q-item-label class="label-value q-mt-sm">
                     X: {{ Math.floor(creature.getCenterX()) }}, Y: {{ Math.floor(creature.getCenterY()) }}
+                  </q-item-label>
+                </q-item-section>
+              </q-item>
+            </q-list>
+          </q-tab-panel>
+
+          <!-- PROPULSION -->
+          <q-tab-panel name="propulsion" class="scroll-panel">
+            <q-list bordered separator class="rounded-borders">
+              <q-item>
+                <q-item-section>
+                  <q-item-label class="label-title">Type de Nage</q-item-label>
+                  <q-item-label caption class="label-desc">
+                    Stratégie de propulsion. Détermine le style de mouvement, la vitesse et l'efficacité énergétique.
+                  </q-item-label>
+                  <q-item-label class="label-value q-mt-sm">
+                    {{ getPropulsionEmoji(creature.genes.propulsionType) }} {{ getPropulsionName(creature.genes.propulsionType) }}
+                  </q-item-label>
+                </q-item-section>
+              </q-item>
+
+              <q-item>
+                <q-item-section>
+                  <q-item-label class="label-title">Description</q-item-label>
+                  <q-item-label class="label-value q-mt-sm">
+                    {{ getPropulsionConfig(creature.genes.propulsionType).description }}
+                  </q-item-label>
+                </q-item-section>
+              </q-item>
+
+              <q-item>
+                <q-item-section>
+                  <q-item-label class="label-title">Caractéristiques</q-item-label>
+                  <q-item-label caption class="label-desc q-mt-sm">
+                    Multiplicateur de force: ×{{ getPropulsionConfig(creature.genes.propulsionType).forceMultiplier.toFixed(1) }}
+                  </q-item-label>
+                  <q-item-label caption class="label-desc">
+                    Coût énergétique: ×{{ getPropulsionConfig(creature.genes.propulsionType).energyCost.toFixed(1) }}
+                  </q-item-label>
+                  <q-item-label caption class="label-desc">
+                    Potentiel de vitesse: {{ (getPropulsionConfig(creature.genes.propulsionType).speedPotential * 100).toFixed(0) }}%
+                  </q-item-label>
+                  <q-item-label caption class="label-desc">
+                    Maniabilité: {{ (getPropulsionConfig(creature.genes.propulsionType).maneuverability * 100).toFixed(0) }}%
+                  </q-item-label>
+                </q-item-section>
+              </q-item>
+
+              <q-item>
+                <q-item-section>
+                  <q-item-label class="label-title">Fréquence d'Oscillation</q-item-label>
+                  <q-item-label caption class="label-desc">
+                    Vitesse des battements. Varie selon le type de propulsion.
+                  </q-item-label>
+                  <q-item-label class="label-value q-mt-sm">
+                    {{ getPropulsionConfig(creature.genes.propulsionType).baseFrequency.toFixed(3) }} ± {{ getPropulsionConfig(creature.genes.propulsionType).frequencyVariance.toFixed(3) }}
                   </q-item-label>
                 </q-item-section>
               </q-item>
@@ -525,6 +582,7 @@
 
 <script setup>
 import { ref, watch } from 'vue'
+import { getPropulsionConfig, getPropulsionEmoji, getPropulsionName } from 'src/systems/PropulsionSystem'
 
 const props = defineProps({
   modelValue: Boolean,

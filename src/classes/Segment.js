@@ -14,7 +14,7 @@ export class Segment {
     return Math.sqrt(dx * dx + dy * dy)
   }
 
-  applyForces(time, muscleStrength = 1) {
+  applyForces(time, muscleStrength = 1, forceMultiplier = 2.5, propulsionType = 'UNDULATION') {
     // Contraction musculaire (oscillation)
     const contraction = Math.sin(time * this.frequency + this.phase) * this.strength * muscleStrength
 
@@ -28,14 +28,61 @@ export class Segment {
     const ny = dy / currentLength
     const nx = dx / currentLength
 
-    // PROPULSION : Mouvement perpendiculaire UNIQUEMENT (comme battre des nageoires)
+    // Direction perpendiculaire
     const perpX = -ny
     const perpY = nx
 
-    // Force de battement
-    const beatForce = contraction * 2.5
-    this.node1.applyForce(perpX * beatForce, perpY * beatForce)
-    this.node2.applyForce(-perpX * beatForce, -perpY * beatForce)
+    // Force de battement (modulée par le type de propulsion)
+    const beatForce = contraction * forceMultiplier
+
+    // PHYSIQUE DIFFÉRENTE SELON LE TYPE
+    switch (propulsionType) {
+      case 'UNDULATION': {
+        // ONDULATION : Pousse dans la direction du segment lui-même (vague progressive)
+        // Chaque segment pousse "en arrière" pour propulser le corps "en avant"
+        const pushForce = beatForce * 0.8
+        this.node1.applyForce(-nx * pushForce, -ny * pushForce)
+        this.node2.applyForce(nx * pushForce, ny * pushForce)
+        break
+      }
+
+      case 'OSCILLATION': {
+        // OSCILLATION : Battement latéral fort (comme requin)
+        this.node1.applyForce(perpX * beatForce, perpY * beatForce)
+        this.node2.applyForce(-perpX * beatForce, -perpY * beatForce)
+        break
+      }
+
+      case 'JET': {
+        // JET : Contraction synchronisée qui expulse "l'eau" en arrière
+        // Tous les segments poussent vers l'extérieur/intérieur
+        const jetForce = beatForce * 1.2
+        this.node1.applyForce(-perpX * jetForce, -perpY * jetForce)
+        this.node2.applyForce(perpX * jetForce, perpY * jetForce)
+        break
+      }
+
+      case 'ROWING': {
+        // RAMES : Alternance gauche/droite
+        this.node1.applyForce(perpX * beatForce, perpY * beatForce)
+        this.node2.applyForce(-perpX * beatForce, -perpY * beatForce)
+        break
+      }
+
+      case 'VIBRATION': {
+        // VIBRATION : Petits mouvements rapides dans toutes les directions
+        const vibForce = beatForce * 0.6
+        this.node1.applyForce(perpX * vibForce, perpY * vibForce)
+        this.node2.applyForce(-perpX * vibForce, -perpY * vibForce)
+        break
+      }
+
+      default: {
+        // Par défaut : perpendiculaire
+        this.node1.applyForce(perpX * beatForce, perpY * beatForce)
+        this.node2.applyForce(-perpX * beatForce, -perpY * beatForce)
+      }
+    }
   }
 
   // CONTRAINTE RIGIDE : Force le segment à garder exactement sa longueur

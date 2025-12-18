@@ -8,6 +8,16 @@ import {
 } from 'src/utils/Constants'
 import { generateFirstName, createFamilyName } from 'src/utils/NameGenerator'
 import { getTemperatureAt } from 'src/systems/Temperature'
+import {
+  getRandomPropulsionType,
+  getPropulsionColor,
+  getEnergyCostMultiplier,
+  getForceMultiplier,
+  getSegmentFrequency,
+  generatePropulsionPattern,
+  constrainPatternToType
+} from 'src/systems/PropulsionSystem'
+import { PROPULSION_TYPES } from 'src/utils/Constants'
 
 export class Creature {
   constructor(x, y, genes = null, parentNames = null, currentGeneration = 1) {
@@ -38,7 +48,13 @@ export class Creature {
       maxEnergyBonus: 0,
       fertility: 1.0,
       preferredTemp: 15 + Math.random() * 10,
-      thermalTolerance: 5.0
+      thermalTolerance: 5.0,
+      propulsionType: getRandomPropulsionType() // Type de nage
+    }
+
+    // Couleur basée sur le type de propulsion
+    if (!genes) {
+      this.color = getPropulsionColor(this.genes.propulsionType)
     }
 
     this.maxEnergy = 100 + this.genes.maxEnergyBonus
@@ -89,30 +105,180 @@ export class Creature {
   }
 
   createRandom(x, y) {
-    const segmentCount = 3 + Math.floor(Math.random() * 3)
+    const propulsionType = this.genes.propulsionType
 
-    this.nodes.push(new Node(x, y))
+    // FORMES DIFFÉRENTES SELON LE TYPE DE PROPULSION
+    switch (propulsionType) {
+      case PROPULSION_TYPES.UNDULATION: {
+        // ONDULATION : Corps long et linéaire (comme une anguille)
+        const segmentCount = 5 + Math.floor(Math.random() * 3) // 5-7 segments
+        const angle = Math.random() * Math.PI * 2
+        const segmentLength = 18 + Math.random() * 8
 
-    for (let i = 0; i < segmentCount; i++) {
-      const parentNode = this.nodes[Math.floor(Math.random() * this.nodes.length)]
-      const angle = Math.random() * Math.PI * 2
-      const length = 15 + Math.random() * 25
+        this.nodes.push(new Node(x, y))
 
-      const newNode = new Node(
-        parentNode.x + Math.cos(angle) * length,
-        parentNode.y + Math.sin(angle) * length
-      )
-      this.nodes.push(newNode)
+        for (let i = 0; i < segmentCount; i++) {
+          const prevNode = this.nodes[this.nodes.length - 1]
+          const newNode = new Node(
+            prevNode.x + Math.cos(angle) * segmentLength,
+            prevNode.y + Math.sin(angle) * segmentLength
+          )
+          this.nodes.push(newNode)
+          this.segments.push(
+            new Segment(prevNode, newNode, 0.3 + Math.random() * 0.2, (i / segmentCount) * Math.PI * 2, getSegmentFrequency(propulsionType))
+          )
+        }
+        break
+      }
 
-      this.segments.push(
-        new Segment(
-          parentNode,
-          newNode,
-          0.2 + Math.random() * 0.3,
-          Math.random() * Math.PI * 2,
-          0.04 + Math.random() * 0.06
-        )
-      )
+      case PROPULSION_TYPES.OSCILLATION: {
+        // OSCILLATION : Corps streamline avec queue large (comme requin)
+        const bodySegments = 3
+        const tailSegments = 2
+        const angle = Math.random() * Math.PI * 2
+
+        // Corps principal (petits segments)
+        this.nodes.push(new Node(x, y))
+        for (let i = 0; i < bodySegments; i++) {
+          const prevNode = this.nodes[this.nodes.length - 1]
+          const newNode = new Node(
+            prevNode.x + Math.cos(angle) * 15,
+            prevNode.y + Math.sin(angle) * 15
+          )
+          this.nodes.push(newNode)
+          this.segments.push(
+            new Segment(prevNode, newNode, 0.2, 0, getSegmentFrequency(propulsionType))
+          )
+        }
+
+        // Queue (segments plus longs et puissants)
+        for (let i = 0; i < tailSegments; i++) {
+          const prevNode = this.nodes[this.nodes.length - 1]
+          const newNode = new Node(
+            prevNode.x + Math.cos(angle) * 25,
+            prevNode.y + Math.sin(angle) * 25
+          )
+          this.nodes.push(newNode)
+          this.segments.push(
+            new Segment(prevNode, newNode, 0.5, Math.PI, getSegmentFrequency(propulsionType))
+          )
+        }
+        break
+      }
+
+      case PROPULSION_TYPES.JET: {
+        // JET : Corps compact et rond (comme méduse)
+        const radialSegments = 5 + Math.floor(Math.random() * 2) // 5-6 segments radiaux
+
+        this.nodes.push(new Node(x, y)) // Centre
+
+        for (let i = 0; i < radialSegments; i++) {
+          const angle = (i / radialSegments) * Math.PI * 2
+          const length = 20 + Math.random() * 10
+          const newNode = new Node(
+            x + Math.cos(angle) * length,
+            y + Math.sin(angle) * length
+          )
+          this.nodes.push(newNode)
+          this.segments.push(
+            new Segment(this.nodes[0], newNode, 0.4 + Math.random() * 0.1, 0, getSegmentFrequency(propulsionType))
+          )
+        }
+        break
+      }
+
+      case PROPULSION_TYPES.ROWING: {
+        // RAMES : Corps central avec appendices latéraux (comme tortue)
+        const spineSegments = 3
+        const appendagesPerSide = 2
+        const angle = Math.random() * Math.PI * 2
+
+        // Colonne vertébrale
+        this.nodes.push(new Node(x, y))
+        for (let i = 0; i < spineSegments; i++) {
+          const prevNode = this.nodes[this.nodes.length - 1]
+          const newNode = new Node(
+            prevNode.x + Math.cos(angle) * 18,
+            prevNode.y + Math.sin(angle) * 18
+          )
+          this.nodes.push(newNode)
+          this.segments.push(
+            new Segment(prevNode, newNode, 0.25, 0, getSegmentFrequency(propulsionType))
+          )
+        }
+
+        // Appendices latéraux (rames)
+        for (let i = 1; i <= appendagesPerSide; i++) {
+          const spineNode = this.nodes[i]
+          // Gauche
+          const leftNode = new Node(
+            spineNode.x + Math.cos(angle + Math.PI / 2) * 22,
+            spineNode.y + Math.sin(angle + Math.PI / 2) * 22
+          )
+          this.nodes.push(leftNode)
+          this.segments.push(
+            new Segment(spineNode, leftNode, 0.3, 0, getSegmentFrequency(propulsionType))
+          )
+          // Droite
+          const rightNode = new Node(
+            spineNode.x + Math.cos(angle - Math.PI / 2) * 22,
+            spineNode.y + Math.sin(angle - Math.PI / 2) * 22
+          )
+          this.nodes.push(rightNode)
+          this.segments.push(
+            new Segment(spineNode, rightNode, 0.3, Math.PI, getSegmentFrequency(propulsionType))
+          )
+        }
+        break
+      }
+
+      case PROPULSION_TYPES.VIBRATION: {
+        // VIBRATION : Corps petit et compact (comme hippocampe)
+        const segmentCount = 3 + Math.floor(Math.random() * 2) // 3-4 segments courts
+        const angle = Math.random() * Math.PI * 2
+
+        this.nodes.push(new Node(x, y))
+        for (let i = 0; i < segmentCount; i++) {
+          const prevNode = this.nodes[this.nodes.length - 1]
+          const newNode = new Node(
+            prevNode.x + Math.cos(angle) * 12,
+            prevNode.y + Math.sin(angle) * 12
+          )
+          this.nodes.push(newNode)
+          this.segments.push(
+            new Segment(prevNode, newNode, 0.2, Math.random() * 0.5, getSegmentFrequency(propulsionType))
+          )
+        }
+        break
+      }
+
+      default: {
+        // Fallback : forme aléatoire
+        const segmentCount = 3 + Math.floor(Math.random() * 3)
+        this.nodes.push(new Node(x, y))
+
+        for (let i = 0; i < segmentCount; i++) {
+          const parentNode = this.nodes[Math.floor(Math.random() * this.nodes.length)]
+          const angle = Math.random() * Math.PI * 2
+          const length = 15 + Math.random() * 25
+
+          const newNode = new Node(
+            parentNode.x + Math.cos(angle) * length,
+            parentNode.y + Math.sin(angle) * length
+          )
+          this.nodes.push(newNode)
+
+          this.segments.push(
+            new Segment(
+              parentNode,
+              newNode,
+              0.2 + Math.random() * 0.3,
+              Math.random() * Math.PI * 2,
+              getSegmentFrequency(propulsionType)
+            )
+          )
+        }
+      }
     }
 
     // Garantir minimum 3 nœuds
@@ -128,7 +294,7 @@ export class Creature {
       this.nodes.push(newNode)
 
       this.segments.push(
-        new Segment(lastNode, newNode, 0.2 + Math.random() * 0.3, Math.random() * Math.PI * 2, 0.04 + Math.random() * 0.06)
+        new Segment(lastNode, newNode, 0.2 + Math.random() * 0.3, Math.random() * Math.PI * 2, getSegmentFrequency(propulsionType))
       )
     }
   }
@@ -210,8 +376,9 @@ export class Creature {
       tempPenalty = 1.0 + overshoot * 0.05
     }
 
-    // Coût énergétique
-    const metabolismCost = this.mass * 0.008 * this.genes.metabolicEfficiency * tempPenalty
+    // Coût énergétique (ajusté par type de propulsion)
+    const propulsionCostMultiplier = getEnergyCostMultiplier(this.genes.propulsionType)
+    const metabolismCost = this.mass * 0.008 * this.genes.metabolicEfficiency * tempPenalty * propulsionCostMultiplier
     this.energy -= metabolismCost
     this.stats.energyLost += metabolismCost
 
@@ -224,8 +391,9 @@ export class Creature {
       effectiveMuscleStrength *= 0.5
     }
 
+    const forceMultiplier = getForceMultiplier(this.genes.propulsionType)
     for (const seg of this.segments) {
-      seg.applyForces(this.age, effectiveMuscleStrength)
+      seg.applyForces(this.age, effectiveMuscleStrength, forceMultiplier, this.genes.propulsionType)
     }
 
     // Traînée hydrodynamique
@@ -309,6 +477,7 @@ export class Creature {
       fertility: this.genes.fertility,
       preferredTemp: this.genes.preferredTemp,
       thermalTolerance: this.genes.thermalTolerance,
+      propulsionType: this.genes.propulsionType, // Type de nage
       motorPatterns: this.getMotorPatterns(), // Patterns moteurs appris
       structure: {
         nodeCount: this.nodes.length,
@@ -320,19 +489,213 @@ export class Creature {
   }
 
   draw(ctx) {
-    // Dessiner segments
+    const propulsionType = this.genes.propulsionType
+    const energyFactor = Math.min(1, this.energy / 100)
+
+    // Effets visuels spécifiques par type de propulsion
+    switch (propulsionType) {
+      case PROPULSION_TYPES.UNDULATION:
+        this.drawUndulation(ctx, energyFactor)
+        break
+      case PROPULSION_TYPES.OSCILLATION:
+        this.drawOscillation(ctx, energyFactor)
+        break
+      case PROPULSION_TYPES.JET:
+        this.drawJet(ctx, energyFactor)
+        break
+      case PROPULSION_TYPES.ROWING:
+        this.drawRowing(ctx, energyFactor)
+        break
+      case PROPULSION_TYPES.VIBRATION:
+        this.drawVibration(ctx, energyFactor)
+        break
+      default:
+        this.drawDefault(ctx, energyFactor)
+    }
+
+    // Dessiner nœuds (commun à tous)
+    this.drawNodes(ctx)
+  }
+
+  // Style ONDULATION: segments avec gradient ondulant
+  drawUndulation(ctx, energyFactor) {
+    for (let i = 0; i < this.segments.length; i++) {
+      const seg = this.segments[i]
+      ctx.beginPath()
+      ctx.moveTo(seg.node1.x, seg.node1.y)
+      ctx.lineTo(seg.node2.x, seg.node2.y)
+
+      // Variation d'épaisseur le long du corps (ondulation)
+      const wave = Math.sin((i / this.segments.length) * Math.PI * 2 + this.age * 0.1)
+      const width = (2 + this.mass * 0.2) * (1 + wave * 0.3)
+
+      ctx.strokeStyle = `rgba(${this.color.r}, ${this.color.g}, ${this.color.b}, ${0.6 + energyFactor * 0.4})`
+      ctx.lineWidth = width
+      ctx.stroke()
+
+      // Lueur douce
+      ctx.strokeStyle = `rgba(${this.color.r}, ${this.color.g}, ${this.color.b}, ${0.2})`
+      ctx.lineWidth = width + 4
+      ctx.stroke()
+    }
+  }
+
+  // Style OSCILLATION: segments épais à l'arrière, traînée de mouvement
+  drawOscillation(ctx, energyFactor) {
+    const frontCount = Math.floor(this.segments.length * 0.7)
+
+    for (let i = 0; i < this.segments.length; i++) {
+      const seg = this.segments[i]
+      ctx.beginPath()
+      ctx.moveTo(seg.node1.x, seg.node1.y)
+      ctx.lineTo(seg.node2.x, seg.node2.y)
+
+      // Plus épais à l'arrière (queue puissante)
+      const isTail = i >= frontCount
+      const width = isTail ? (3 + this.mass * 0.3) : (1.5 + this.mass * 0.15)
+
+      ctx.strokeStyle = `rgba(${this.color.r}, ${this.color.g}, ${this.color.b}, ${0.7 + energyFactor * 0.3})`
+      ctx.lineWidth = width
+      ctx.stroke()
+
+      // Traînée de mouvement sur la queue
+      if (isTail) {
+        const vx = (seg.node1.vx + seg.node2.vx) / 2
+        const vy = (seg.node1.vy + seg.node2.vy) / 2
+        const speed = Math.sqrt(vx * vx + vy * vy)
+
+        if (speed > 0.5) {
+          ctx.save()
+          ctx.globalAlpha = 0.3
+          ctx.strokeStyle = `rgba(${this.color.r}, ${this.color.g}, ${this.color.b}, 0.5)`
+          ctx.lineWidth = width * 1.5
+          ctx.beginPath()
+          const midX = (seg.node1.x + seg.node2.x) / 2
+          const midY = (seg.node1.y + seg.node2.y) / 2
+          ctx.moveTo(midX, midY)
+          ctx.lineTo(midX - vx * 5, midY - vy * 5)
+          ctx.stroke()
+          ctx.restore()
+        }
+      }
+    }
+  }
+
+  // Style JET: impulsions visuelles, effet de contraction
+  drawJet(ctx, energyFactor) {
+    // Effet de pulsation synchronisée
+    const pulse = Math.sin(this.age * 0.05) * 0.5 + 0.5
+
     for (const seg of this.segments) {
       ctx.beginPath()
       ctx.moveTo(seg.node1.x, seg.node1.y)
       ctx.lineTo(seg.node2.x, seg.node2.y)
 
-      const energyFactor = Math.min(1, this.energy / 100)
+      // Épaisseur pulsante
+      const width = (2 + this.mass * 0.2) * (0.7 + pulse * 0.6)
+
+      ctx.strokeStyle = `rgba(${this.color.r}, ${this.color.g}, ${this.color.b}, ${0.5 + energyFactor * 0.5})`
+      ctx.lineWidth = width
+      ctx.stroke()
+
+      // Halo pulsant
+      ctx.save()
+      ctx.globalAlpha = pulse * 0.4
+      ctx.strokeStyle = `rgba(${this.color.r}, ${this.color.g}, ${this.color.b}, 0.8)`
+      ctx.lineWidth = width + 6
+      ctx.stroke()
+      ctx.restore()
+    }
+
+    // Effet de jet (particules derrière)
+    if (pulse > 0.7) {
+      const cx = this.getCenterX()
+      const cy = this.getCenterY()
+      const avgVx = this.nodes.reduce((sum, n) => sum + n.vx, 0) / this.nodes.length
+      const avgVy = this.nodes.reduce((sum, n) => sum + n.vy, 0) / this.nodes.length
+
+      ctx.save()
+      ctx.globalAlpha = 0.3
+      ctx.fillStyle = `rgba(${this.color.r}, ${this.color.g}, ${this.color.b}, 0.6)`
+      for (let i = 0; i < 3; i++) {
+        ctx.beginPath()
+        ctx.arc(cx - avgVx * (i + 1) * 3, cy - avgVy * (i + 1) * 3, 2 - i * 0.5, 0, Math.PI * 2)
+        ctx.fill()
+      }
+      ctx.restore()
+    }
+  }
+
+  // Style ROWING: segments avec effet de rames battantes
+  drawRowing(ctx, energyFactor) {
+    for (let i = 0; i < this.segments.length; i++) {
+      const seg = this.segments[i]
+      const isLeftSide = i % 2 === 0
+
+      ctx.beginPath()
+      ctx.moveTo(seg.node1.x, seg.node1.y)
+      ctx.lineTo(seg.node2.x, seg.node2.y)
+
+      // Alternance visuelle gauche/droite
+      const beatPhase = Math.sin(this.age * 0.08 + (isLeftSide ? 0 : Math.PI))
+      const width = (2 + this.mass * 0.2) * (1 + Math.abs(beatPhase) * 0.4)
+
+      ctx.strokeStyle = `rgba(${this.color.r}, ${this.color.g}, ${this.color.b}, ${0.6 + energyFactor * 0.4})`
+      ctx.lineWidth = width
+      ctx.stroke()
+
+      // Effet de rame étendue
+      if (Math.abs(beatPhase) > 0.7) {
+        ctx.save()
+        ctx.globalAlpha = 0.2
+        ctx.strokeStyle = `rgba(${this.color.r}, ${this.color.g}, ${this.color.b}, 0.5)`
+        ctx.lineWidth = width + 3
+        ctx.stroke()
+        ctx.restore()
+      }
+    }
+  }
+
+  // Style VIBRATION: segments fins avec effet de flou
+  drawVibration(ctx, energyFactor) {
+    // Effet de vibration rapide
+    const vibration = Math.sin(this.age * 0.3) * 0.3
+
+    for (const seg of this.segments) {
+      // Dessiner plusieurs fois avec léger décalage pour effet de flou
+      for (let offset = -1; offset <= 1; offset++) {
+        ctx.save()
+        ctx.globalAlpha = offset === 0 ? (0.6 + energyFactor * 0.4) : 0.15
+        ctx.translate(vibration * offset, vibration * offset * 0.5)
+
+        ctx.beginPath()
+        ctx.moveTo(seg.node1.x, seg.node1.y)
+        ctx.lineTo(seg.node2.x, seg.node2.y)
+
+        ctx.strokeStyle = `rgba(${this.color.r}, ${this.color.g}, ${this.color.b}, 1)`
+        ctx.lineWidth = 1.5 + this.mass * 0.15
+        ctx.stroke()
+
+        ctx.restore()
+      }
+    }
+  }
+
+  // Style par défaut (fallback)
+  drawDefault(ctx, energyFactor) {
+    for (const seg of this.segments) {
+      ctx.beginPath()
+      ctx.moveTo(seg.node1.x, seg.node1.y)
+      ctx.lineTo(seg.node2.x, seg.node2.y)
+
       ctx.strokeStyle = `rgba(${this.color.r}, ${this.color.g}, ${this.color.b}, ${0.6 + energyFactor * 0.4})`
       ctx.lineWidth = 2 + this.mass * 0.2
       ctx.stroke()
     }
+  }
 
-    // Dessiner nœuds
+  // Dessiner les nœuds (commun à tous les types)
+  drawNodes(ctx) {
     for (const node of this.nodes) {
       ctx.beginPath()
       ctx.arc(node.x, node.y, 3, 0, Math.PI * 2)
@@ -401,9 +764,17 @@ export class Creature {
       const bestPattern = memory.patterns.reduce((best, p) => (p.efficiency > best.efficiency ? p : best))
       memory.currentPattern = { ...bestPattern }
     } else {
-      // EXPLORATION: créer un pattern aléatoire
+      // EXPLORATION: créer un pattern basé sur le type de propulsion avec variations
+      let basePattern = generatePropulsionPattern(this.genes.propulsionType, this.segments.length)
+
+      // Ajouter des variations aléatoires (±20% pour exploration)
+      basePattern = basePattern.map(phase => phase + (Math.random() - 0.5) * Math.PI * 0.4)
+
+      // Contraindre le pattern selon les règles du type
+      const constrainedPattern = constrainPatternToType(this.genes.propulsionType, basePattern)
+
       memory.currentPattern = {
-        segmentPhases: this.segments.map(() => Math.random() * Math.PI * 2),
+        segmentPhases: constrainedPattern,
         efficiency: 0,
         timesUsed: 0
       }
