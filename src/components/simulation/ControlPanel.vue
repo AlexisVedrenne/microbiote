@@ -42,7 +42,7 @@
         <span class="stat-value">{{ store.avgStats.size }}</span>
       </div>
       <div class="stat-line">
-        <span class="stat-label">Segments:</span>
+        <span class="stat-label">Muscles:</span>
         <span class="stat-value">{{ store.avgStats.segments }}</span>
       </div>
       <div class="stat-line">

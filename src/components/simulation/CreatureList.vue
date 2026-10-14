@@ -28,7 +28,7 @@
         >
           <q-item-section>
             <q-item-label class="creature-name">
-              {{ getPropulsionEmojiSafe(creature.genes.propulsionType) }} {{ creature.firstName }}
+              🦠 {{ creature.firstName }}
             </q-item-label>
             <q-item-label v-if="creature.familyName" caption class="creature-family">
               {{ creature.familyName }}
@@ -41,7 +41,7 @@
                 ⚡{{ Math.floor(creature.energy) }}
               </q-chip>
               <q-chip dense size="sm" color="blue" text-color="white">
-                🧬{{ creature.segments.length }}
+                🧬{{ creature.muscles.length }}
               </q-chip>
               <q-chip dense size="sm" color="orange" text-color="white">
                 📏{{ creature.mass.toFixed(1) }}
@@ -59,11 +59,10 @@
 </template>
 
 <script setup>
-import { ref, computed, defineEmits } from 'vue'
+import { ref, computed } from 'vue'
 import { useSimulationStore } from 'src/stores/simulation'
 import DraggablePanel from 'src/components/ui/DraggablePanel.vue'
 import CreatureDetails from './CreatureDetails.vue'
-import { getPropulsionEmojiSafe } from 'src/systems/PropulsionSystem'
 
 const store = useSimulationStore()
 const windowWidth = ref(window.innerWidth)

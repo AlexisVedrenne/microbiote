@@ -1,6 +1,6 @@
 <template>
   <q-dialog v-model="isOpen">
-    <q-card class="creature-details-card" style="min-width: 600px; max-width: 800px">
+    <q-card class="creature-details-card" style="min-width: 650px; max-width: 850px">
       <q-card-section class="row items-center q-pb-none">
         <div class="text-h6 text-aqua">📊 Détails de {{ creature?.firstName }}</div>
         <q-space />
@@ -20,13 +20,12 @@
         >
           <q-tab name="identity" label="👤 Identité" />
           <q-tab name="vital" label="💚 Vital" />
-          <q-tab name="propulsion" label="🏊 Propulsion" />
+          <q-tab name="motor" label="🎯 Motricité" />
           <q-tab name="physical" label="🧬 Physique" />
           <q-tab name="genes" label="🧪 Gènes" />
           <q-tab name="reproduction" label="💕 Reproduction" />
           <q-tab name="performance" label="📈 Performance" />
           <q-tab name="debuffs" label="⚠️ Debuffs" v-if="creature.debuffs.slow > 0 || creature.debuffs.poison > 0" />
-          <q-tab name="memory" label="🧠 Apprentissage" />
         </q-tabs>
 
         <q-separator />
@@ -74,7 +73,7 @@
                 <q-item-section>
                   <q-item-label class="label-title">Énergie</q-item-label>
                   <q-item-label caption class="label-desc">
-                    Carburant vital. Diminue avec le métabolisme et les mouvements. La créature meurt si elle atteint 0.
+                    Carburant vital. La créature meurt si elle atteint 0.
                   </q-item-label>
                   <q-item-label class="label-value q-mt-sm">
                     {{ Math.floor(creature.energy) }} / {{ creature.maxEnergy }}
@@ -91,7 +90,7 @@
                 <q-item-section>
                   <q-item-label class="label-title">Masse</q-item-label>
                   <q-item-label caption class="label-desc">
-                    Poids total (nœuds × 2). Masse élevée = plus lent mais peut manger les petits.
+                    Poids total. Plus lourd = plus lent mais peut manger les petits.
                   </q-item-label>
                   <q-item-label class="label-value q-mt-sm">
                     {{ creature.mass.toFixed(2) }} ({{ creature.nodes.length }} nœuds)
@@ -102,9 +101,6 @@
               <q-item>
                 <q-item-section>
                   <q-item-label class="label-title">Rayon</q-item-label>
-                  <q-item-label caption class="label-desc">
-                    Taille physique. Détermine la zone de collision.
-                  </q-item-label>
                   <q-item-label class="label-value q-mt-sm">
                     {{ creature.getRadius().toFixed(1) }}px
                   </q-item-label>
@@ -114,9 +110,6 @@
               <q-item>
                 <q-item-section>
                   <q-item-label class="label-title">Position</q-item-label>
-                  <q-item-label caption class="label-desc">
-                    Coordonnées dans le monde. Y détermine la température (haut=chaud, bas=froid).
-                  </q-item-label>
                   <q-item-label class="label-value q-mt-sm">
                     X: {{ Math.floor(creature.getCenterX()) }}, Y: {{ Math.floor(creature.getCenterY()) }}
                   </q-item-label>
@@ -125,69 +118,106 @@
             </q-list>
           </q-tab-panel>
 
-          <!-- PROPULSION -->
-          <q-tab-panel name="propulsion" class="scroll-panel">
+          <!-- MOTRICITÉ -->
+          <q-tab-panel name="motor" class="scroll-panel">
+            <!-- Visualiseur de poses -->
+            <div class="pose-visualizer q-mb-md">
+              <div class="visualizer-header row items-center justify-between q-mb-sm">
+                <span class="text-cyan-4">🎬 Visualisation des Poses</span>
+                <div class="row q-gutter-sm">
+                  <q-btn 
+                    dense 
+                    size="sm" 
+                    :icon="isPlaying ? 'pause' : 'play_arrow'" 
+                    :color="isPlaying ? 'orange' : 'positive'"
+                    @click="togglePlay"
+                  />
+                  <q-btn dense size="sm" icon="skip_previous" color="grey" @click="prevPose" :disable="isPlaying" />
+                  <q-btn dense size="sm" icon="skip_next" color="grey" @click="nextPose" :disable="isPlaying" />
+                  <q-btn dense size="sm" icon="refresh" color="grey" @click="resetPreview" />
+                </div>
+              </div>
+              
+              <div class="visualizer-container">
+                <canvas ref="previewCanvas" width="300" height="200" class="preview-canvas"></canvas>
+                <div class="pose-indicator">
+                  Pose {{ currentPoseIndex + 1 }} / {{ creature.motorClock?.poses?.length || 0 }}
+                </div>
+              </div>
+
+              <!-- Slider de vitesse -->
+              <div class="row items-center q-mt-sm q-gutter-sm">
+                <span class="text-grey-5" style="font-size: 11px">Vitesse:</span>
+                <q-slider
+                  v-model="previewSpeed"
+                  :min="0.25"
+                  :max="3"
+                  :step="0.25"
+                  dense
+                  style="width: 120px"
+                  color="cyan"
+                />
+                <span class="text-cyan-4" style="font-size: 11px">{{ previewSpeed }}x</span>
+              </div>
+            </div>
+
             <q-list bordered separator class="rounded-borders">
               <q-item>
                 <q-item-section>
-                  <q-item-label class="label-title">Type de Nage</q-item-label>
+                  <q-item-label class="label-title">Articulations</q-item-label>
                   <q-item-label caption class="label-desc">
-                    {{ creature.genes.propulsionType ? 'Stratégie de propulsion découverte par l\'apprentissage' : 'La créature explore différents mouvements pour découvrir son type' }}
+                    Points de flexion (nœuds avec 2+ liens). Contrôlent le mouvement.
                   </q-item-label>
-                  <q-item-label class="label-value q-mt-sm" :class="{ 'text-grey-6': !creature.genes.propulsionType }">
-                    {{ getPropulsionEmojiSafe(creature.genes.propulsionType) }} {{ getPropulsionNameSafe(creature.genes.propulsionType) }}
+                  <q-item-label class="label-value q-mt-sm">
+                    {{ creature.articulations ? creature.articulations.length : 0 }} articulation(s)
                   </q-item-label>
                 </q-item-section>
               </q-item>
 
-              <!-- Afficher détails seulement si type découvert -->
-              <template v-if="creature.genes.propulsionType">
-                <q-item>
-                  <q-item-section>
-                    <q-item-label class="label-title">Description</q-item-label>
-                    <q-item-label class="label-value q-mt-sm">
-                      {{ getPropulsionConfig(creature.genes.propulsionType).description }}
-                    </q-item-label>
-                  </q-item-section>
-                </q-item>
-
-                <q-item>
-                  <q-item-section>
-                    <q-item-label class="label-title">Caractéristiques</q-item-label>
-                    <q-item-label caption class="label-desc q-mt-sm">
-                      Multiplicateur de force: ×{{ getPropulsionConfig(creature.genes.propulsionType).forceMultiplier.toFixed(1) }}
-                    </q-item-label>
-                    <q-item-label caption class="label-desc">
-                      Coût énergétique: ×{{ getPropulsionConfig(creature.genes.propulsionType).energyCost.toFixed(1) }}
-                    </q-item-label>
-                    <q-item-label caption class="label-desc">
-                      Potentiel de vitesse: {{ (getPropulsionConfig(creature.genes.propulsionType).speedPotential * 100).toFixed(0) }}%
-                    </q-item-label>
-                    <q-item-label caption class="label-desc">
-                      Maniabilité: {{ (getPropulsionConfig(creature.genes.propulsionType).maneuverability * 100).toFixed(0) }}%
-                    </q-item-label>
-                  </q-item-section>
-                </q-item>
-
-                <q-item>
-                  <q-item-section>
-                    <q-item-label class="label-title">Fréquence d'Oscillation</q-item-label>
-                    <q-item-label caption class="label-desc">
-                      Vitesse des battements. Varie selon le type de propulsion.
-                    </q-item-label>
-                    <q-item-label class="label-value q-mt-sm">
-                      {{ getPropulsionConfig(creature.genes.propulsionType).baseFrequency.toFixed(3) }} ± {{ getPropulsionConfig(creature.genes.propulsionType).frequencyVariance.toFixed(3) }}
-                    </q-item-label>
-                  </q-item-section>
-                </q-item>
-              </template>
-
-              <!-- Message si pas encore découvert -->
-              <q-item v-else>
+              <q-item v-if="creature.motorClock">
                 <q-item-section>
-                  <q-item-label caption class="text-grey-6 q-mt-sm">
-                    💡 Le type de cette créature sera automatiquement détecté après avoir testé suffisamment de mouvements ({{ creature.motorMemory.sequences.length }}/5 séquences explorées)
+                  <q-item-label class="label-title">Horloge Motrice</q-item-label>
+                  <q-item-label caption class="label-desc">
+                    Cycle de contraction des articulations
                   </q-item-label>
+                  <q-item-label class="label-value q-mt-sm">
+                    Période: {{ creature.motorClock.period }} frames ({{ (creature.motorClock.period / 50).toFixed(1) }}s)
+                  </q-item-label>
+                  <q-item-label class="label-value">
+                    Vitesse: {{ creature.motorClock.speed.toFixed(2) }}x
+                  </q-item-label>
+                </q-item-section>
+              </q-item>
+
+              <q-item v-if="creature.motorClock && creature.motorClock.poses">
+                <q-item-section>
+                  <q-item-label class="label-title">Séquence de Poses</q-item-label>
+                  <q-item-label caption class="label-desc q-mb-sm">
+                    {{ creature.motorClock.poses.length }} pose(s) - Cliquez sur une pose pour la prévisualiser
+                  </q-item-label>
+
+                  <div class="poses-grid">
+                    <div 
+                      v-for="(pose, index) in creature.motorClock.poses" 
+                      :key="index" 
+                      class="pose-card"
+                      :class="{ active: currentPoseIndex === index }"
+                      @click="selectPose(index)"
+                    >
+                      <div class="pose-title">Pose {{ index + 1 }}</div>
+                      <div class="pose-contractions">
+                        <div 
+                          v-for="(contraction, jointIdx) in pose" 
+                          :key="jointIdx"
+                          class="contraction-bar"
+                          :style="{ 
+                            width: (contraction * 100) + '%',
+                            backgroundColor: getContractionColor(contraction)
+                          }"
+                        ></div>
+                      </div>
+                    </div>
+                  </div>
                 </q-item-section>
               </q-item>
             </q-list>
@@ -200,7 +230,7 @@
                 <q-item-section>
                   <q-item-label class="label-title">Nœuds</q-item-label>
                   <q-item-label caption class="label-desc">
-                    Points de masse du squelette. Plus de nœuds = plus lourd.
+                    Points de masse du squelette.
                   </q-item-label>
                   <q-item-label class="label-value q-mt-sm">
                     {{ creature.nodes.length }} nœuds
@@ -210,12 +240,12 @@
 
               <q-item>
                 <q-item-section>
-                  <q-item-label class="label-title">Segments</q-item-label>
+                  <q-item-label class="label-title">Liens</q-item-label>
                   <q-item-label caption class="label-desc">
-                    Articulations qui génèrent la propulsion. Plus de segments = mouvement complexe mais coût élevé.
+                    Segments élastiques entre les nœuds.
                   </q-item-label>
                   <q-item-label class="label-value q-mt-sm">
-                    {{ creature.segments.length }} segments
+                    {{ creature.links.length }} liens
                   </q-item-label>
                 </q-item-section>
               </q-item>
@@ -248,13 +278,13 @@
                 <q-item-section>
                   <q-item-label class="label-title">Force Musculaire</q-item-label>
                   <q-item-label caption class="label-desc">
-                    Puissance de nage. Valeur élevée = nage rapide mais plus de consommation.
+                    Puissance de contraction des articulations.
                   </q-item-label>
                   <q-item-label class="label-value q-mt-sm">
-                    {{ creature.genes.muscleStrength.toFixed(3) }} (min: 0.2, max: 0.6)
+                    {{ creature.genes.muscleStrength.toFixed(3) }}
                   </q-item-label>
                   <q-linear-progress
-                    :value="creature.genes.muscleStrength / 0.6"
+                    :value="creature.genes.muscleStrength / 0.8"
                     color="blue"
                     class="q-mt-sm"
                   />
@@ -265,10 +295,10 @@
                 <q-item-section>
                   <q-item-label class="label-title">Efficacité Métabolique</q-item-label>
                   <q-item-label caption class="label-desc">
-                    Multiplicateur du coût énergétique. Plus bas = meilleur (0.5 = deux fois plus efficace que 1.0).
+                    Multiplicateur du coût énergétique. Plus bas = meilleur.
                   </q-item-label>
                   <q-item-label class="label-value q-mt-sm">
-                    {{ creature.genes.metabolicEfficiency.toFixed(3) }} (min: 0.5, max: 1.0)
+                    {{ creature.genes.metabolicEfficiency.toFixed(3) }}
                   </q-item-label>
                   <q-linear-progress
                     :value="1 - (creature.genes.metabolicEfficiency - 0.5) / 0.5"
@@ -280,10 +310,7 @@
 
               <q-item>
                 <q-item-section>
-                  <q-item-label class="label-title">Bonus Capacité Énergétique</q-item-label>
-                  <q-item-label caption class="label-desc">
-                    Augmente l'énergie max (base 100). Permet de survivre plus longtemps.
-                  </q-item-label>
+                  <q-item-label class="label-title">Bonus Énergie Max</q-item-label>
                   <q-item-label class="label-value q-mt-sm">
                     +{{ creature.genes.maxEnergyBonus }} (total: {{ creature.maxEnergy }})
                   </q-item-label>
@@ -293,35 +320,8 @@
               <q-item>
                 <q-item-section>
                   <q-item-label class="label-title">Fertilité</q-item-label>
-                  <q-item-label caption class="label-desc">
-                    Multiplicateur de reproduction. Plus bas = reproduction plus facile (0.5 = deux fois plus fertile).
-                  </q-item-label>
                   <q-item-label class="label-value q-mt-sm">
-                    {{ creature.genes.fertility.toFixed(3) }} (min: 0.5, max: 1.0)
-                  </q-item-label>
-                </q-item-section>
-              </q-item>
-
-              <q-item>
-                <q-item-section>
-                  <q-item-label class="label-title">Température Préférée</q-item-label>
-                  <q-item-label caption class="label-desc">
-                    Température optimale (haut=30°C, bas=5°C). S'éloigner augmente le coût métabolique.
-                  </q-item-label>
-                  <q-item-label class="label-value q-mt-sm">
-                    {{ creature.genes.preferredTemp.toFixed(1) }}°C
-                  </q-item-label>
-                </q-item-section>
-              </q-item>
-
-              <q-item>
-                <q-item-section>
-                  <q-item-label class="label-title">Tolérance Thermique</q-item-label>
-                  <q-item-label caption class="label-desc">
-                    Écart de température toléré sans pénalité. Au-delà: +5% coût/°C.
-                  </q-item-label>
-                  <q-item-label class="label-value q-mt-sm">
-                    ±{{ creature.genes.thermalTolerance.toFixed(1) }}°C
+                    {{ creature.genes.fertility.toFixed(3) }}
                   </q-item-label>
                 </q-item-section>
               </q-item>
@@ -334,9 +334,6 @@
               <q-item>
                 <q-item-section>
                   <q-item-label class="label-title">Peut se Reproduire</q-item-label>
-                  <q-item-label caption class="label-desc">
-                    Conditions: énergie suffisante, cooldown=0, âge>100 frames, OU fenêtre de fertilité active.
-                  </q-item-label>
                   <q-item-label class="q-mt-sm">
                     <q-chip
                       :color="creature.canReproduce() ? 'positive' : 'negative'"
@@ -351,10 +348,7 @@
 
               <q-item>
                 <q-item-section>
-                  <q-item-label class="label-title">Cooldown de Reproduction</q-item-label>
-                  <q-item-label caption class="label-desc">
-                    Temps d'attente après reproduction. Formule: (200 + masse×15) × fertilité.
-                  </q-item-label>
+                  <q-item-label class="label-title">Cooldown</q-item-label>
                   <q-item-label class="label-value q-mt-sm">
                     {{ creature.reproductionCooldown }} frames ({{ (creature.reproductionCooldown / 60).toFixed(1) }}s)
                   </q-item-label>
@@ -364,11 +358,8 @@
               <q-item>
                 <q-item-section>
                   <q-item-label class="label-title">Fenêtre de Fertilité</q-item-label>
-                  <q-item-label caption class="label-desc">
-                    Période de grâce de 30s après avoir atteint le seuil d'énergie fertile.
-                  </q-item-label>
                   <q-item-label class="label-value q-mt-sm">
-                    {{ creature.fertilityWindow }} frames ({{ (creature.fertilityWindow / 60).toFixed(1) }}s restantes)
+                    {{ creature.fertilityWindow }} frames
                   </q-item-label>
                 </q-item-section>
               </q-item>
@@ -381,9 +372,6 @@
               <q-item>
                 <q-item-section>
                   <q-item-label class="label-title">Nourriture Mangée</q-item-label>
-                  <q-item-label caption class="label-desc">
-                    Unités consommées. Chaque unité: +40 à +80 énergie selon le type.
-                  </q-item-label>
                   <q-item-label class="label-value q-mt-sm">
                     {{ creature.stats.foodEaten }} unités
                   </q-item-label>
@@ -393,9 +381,6 @@
               <q-item>
                 <q-item-section>
                   <q-item-label class="label-title">Distance Parcourue</q-item-label>
-                  <q-item-label caption class="label-desc">
-                    Distance totale depuis le début de la génération. Indique la mobilité.
-                  </q-item-label>
                   <q-item-label class="label-value q-mt-sm">
                     {{ creature.stats.distanceTraveled.toFixed(1) }} pixels
                   </q-item-label>
@@ -405,11 +390,8 @@
               <q-item>
                 <q-item-section>
                   <q-item-label class="label-title">Temps de Survie</q-item-label>
-                  <q-item-label caption class="label-desc">
-                    Durée de vie dans la génération actuelle (réinit toutes les 30s).
-                  </q-item-label>
                   <q-item-label class="label-value q-mt-sm">
-                    {{ creature.stats.survivalTime }} frames ({{ (creature.stats.survivalTime / 60).toFixed(1) }}s)
+                    {{ (creature.stats.survivalTime / 60).toFixed(1) }}s
                   </q-item-label>
                 </q-item-section>
               </q-item>
@@ -417,12 +399,8 @@
               <q-item>
                 <q-item-section>
                   <q-item-label class="label-title">Reproductions</q-item-label>
-                  <q-item-label caption class="label-desc">
-                    Nombre d'enfants créés. Meilleur indicateur du succès évolutif.
-                  </q-item-label>
                   <q-item-label class="label-value q-mt-sm">
                     {{ creature.stats.reproductions }} enfants
-                    (coût: ~{{ Math.floor((50 + creature.mass * 4) * creature.genes.fertility) }} énergie/enfant)
                   </q-item-label>
                 </q-item-section>
               </q-item>
@@ -430,27 +408,10 @@
               <q-item>
                 <q-item-section>
                   <q-item-label class="label-title">Vitesse Moyenne</q-item-label>
-                  <q-item-label caption class="label-desc">
-                    Moyenne des vitesses instantanées. Max absolu: 8 px/frame.
-                  </q-item-label>
                   <q-item-label class="label-value q-mt-sm">
-                    {{
-                      creature.stats.speedSamples > 0
-                        ? (creature.stats.totalSpeed / creature.stats.speedSamples).toFixed(2)
-                        : '0.00'
-                    }} px/frame
-                  </q-item-label>
-                </q-item-section>
-              </q-item>
-
-              <q-item>
-                <q-item-section>
-                  <q-item-label class="label-title">Énergie Perdue</q-item-label>
-                  <q-item-label caption class="label-desc">
-                    Énergie totale dépensée (métabolisme + nage + température).
-                  </q-item-label>
-                  <q-item-label class="label-value q-mt-sm">
-                    {{ creature.stats.energyLost.toFixed(1) }}
+                    {{ creature.stats.speedSamples > 0
+                        ? (creature.stats.totalSpeed / creature.stats.speedSamples).toFixed(3)
+                        : '0.000' }} px/frame
                   </q-item-label>
                 </q-item-section>
               </q-item>
@@ -458,9 +419,6 @@
               <q-item>
                 <q-item-section>
                   <q-item-label class="label-title">Score Total</q-item-label>
-                  <q-item-label caption class="label-desc">
-                    Formule: (nourriture×100) + (distance×0.5) + (survie×2) + (repro×200)
-                  </q-item-label>
                   <q-item-label class="q-mt-sm">
                     <q-chip color="amber" text-color="black" size="md">
                       {{ Math.floor(creature.calculateScore()) }} points
@@ -477,12 +435,9 @@
               <q-item v-if="creature.debuffs.slow > 0">
                 <q-item-section>
                   <q-item-label class="label-title">🐌 Ralentissement</q-item-label>
-                  <q-item-label caption class="label-desc">
-                    Effet de la nourriture orange. -50% vitesse pendant 5 secondes.
-                  </q-item-label>
                   <q-item-label class="q-mt-sm">
                     <q-chip color="orange" text-color="white" size="sm">
-                      {{ creature.debuffs.slow }} frames ({{ (creature.debuffs.slow / 60).toFixed(1) }}s)
+                      {{ (creature.debuffs.slow / 60).toFixed(1) }}s restantes
                     </q-chip>
                   </q-item-label>
                 </q-item-section>
@@ -491,95 +446,9 @@
               <q-item v-if="creature.debuffs.poison > 0">
                 <q-item-section>
                   <q-item-label class="label-title">☠️ Poison</q-item-label>
-                  <q-item-label caption class="label-desc">
-                    Effet de la nourriture violette. -50% absorption pendant 10 secondes.
-                  </q-item-label>
                   <q-item-label class="q-mt-sm">
                     <q-chip color="purple" text-color="white" size="sm">
-                      {{ creature.debuffs.poison }} frames ({{ (creature.debuffs.poison / 60).toFixed(1) }}s)
-                    </q-chip>
-                  </q-item-label>
-                </q-item-section>
-              </q-item>
-            </q-list>
-          </q-tab-panel>
-
-          <!-- APPRENTISSAGE MOTEUR -->
-          <q-tab-panel name="memory" class="scroll-panel">
-            <q-list bordered separator class="rounded-borders">
-              <q-item>
-                <q-item-section>
-                  <q-item-label class="label-title">Patterns Mémorisés</q-item-label>
-                  <q-item-label caption class="label-desc">
-                    Patterns de mouvement efficaces découverts. Max: 10. Transmis aux enfants.
-                  </q-item-label>
-                  <q-item-label class="label-value q-mt-sm">
-                    {{ creature.motorMemory.patterns.length }} / 10 patterns
-                  </q-item-label>
-                  <q-linear-progress
-                    :value="creature.motorMemory.patterns.length / 10"
-                    color="cyan"
-                    class="q-mt-sm"
-                  />
-                </q-item-section>
-              </q-item>
-
-              <q-item>
-                <q-item-section>
-                  <q-item-label class="label-title">Test du Pattern Actuel</q-item-label>
-                  <q-item-label caption class="label-desc">
-                    Progression de l'évaluation (30 frames). Ratio distance/énergie calculé à la fin.
-                  </q-item-label>
-                  <q-item-label class="label-value q-mt-sm">
-                    {{ creature.motorMemory.patternTimer }} / {{ creature.motorMemory.patternDuration }} frames
-                  </q-item-label>
-                  <q-linear-progress
-                    :value="creature.motorMemory.patternTimer / creature.motorMemory.patternDuration"
-                    color="indigo"
-                    class="q-mt-sm"
-                  />
-                </q-item-section>
-              </q-item>
-
-              <q-item>
-                <q-item-section>
-                  <q-item-label class="label-title">Taux d'Exploration</q-item-label>
-                  <q-item-label caption class="label-desc">
-                    Chance de tester un nouveau pattern (30%) vs réutiliser le meilleur (70%).
-                  </q-item-label>
-                  <q-item-label class="label-value q-mt-sm">
-                    {{ (creature.motorMemory.learningRate * 100).toFixed(0) }}%
-                  </q-item-label>
-                </q-item-section>
-              </q-item>
-
-              <q-item v-if="creature.motorMemory.patterns.length > 0">
-                <q-item-section>
-                  <q-item-label class="label-title">Meilleure Efficacité</q-item-label>
-                  <q-item-label caption class="label-desc">
-                    Ratio distance/énergie le plus élevé parmi tous les patterns.
-                  </q-item-label>
-                  <q-item-label class="q-mt-sm">
-                    <q-chip color="teal" text-color="white" size="sm">
-                      {{ Math.max(...creature.motorMemory.patterns.map((p) => p.efficiency)).toFixed(2) }}
-                    </q-chip>
-                  </q-item-label>
-                </q-item-section>
-              </q-item>
-
-              <q-item>
-                <q-item-section>
-                  <q-item-label class="label-title">Patterns Hérités</q-item-label>
-                  <q-item-label caption class="label-desc">
-                    Patterns reçus des parents (top 5 de chaque). Avantage de départ.
-                  </q-item-label>
-                  <q-item-label class="q-mt-sm">
-                    <q-chip
-                      :color="creature.motorMemory.inherited ? 'positive' : 'grey'"
-                      text-color="white"
-                      size="sm"
-                    >
-                      {{ creature.motorMemory.inherited ? 'OUI' : 'NON' }}
+                      {{ (creature.debuffs.poison / 60).toFixed(1) }}s restantes
                     </q-chip>
                   </q-item-label>
                 </q-item-section>
@@ -593,8 +462,7 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
-import { getPropulsionConfig, getPropulsionEmojiSafe, getPropulsionNameSafe } from 'src/systems/PropulsionSystem'
+import { ref, watch, onUnmounted, nextTick } from 'vue'
 
 const props = defineProps({
   modelValue: Boolean,
@@ -605,15 +473,283 @@ const emit = defineEmits(['update:modelValue'])
 const activeTab = ref('identity')
 const isOpen = ref(props.modelValue)
 
+// Preview state
+const previewCanvas = ref(null)
+const currentPoseIndex = ref(0)
+const isPlaying = ref(false)
+const previewSpeed = ref(1)
+const animationFrame = ref(null)
+const previewTime = ref(0)
+
+// Structure de prévisualisation (copie simplifiée)
+const previewNodes = ref([])
+const previewLinks = ref([])
+
 watch(
   () => props.modelValue,
   (newVal) => {
     isOpen.value = newVal
+    if (newVal && props.creature) {
+      nextTick(() => {
+        initPreview()
+      })
+    } else {
+      stopAnimation()
+    }
   }
 )
 
 watch(isOpen, (newVal) => {
   emit('update:modelValue', newVal)
+  if (!newVal) {
+    stopAnimation()
+  }
+})
+
+watch(activeTab, (newVal) => {
+  if (newVal === 'motor' && props.creature) {
+    nextTick(() => {
+      initPreview()
+    })
+  }
+})
+
+watch(currentPoseIndex, () => {
+  if (!isPlaying.value) {
+    drawPreview()
+  }
+})
+
+function initPreview() {
+  if (!props.creature || !previewCanvas.value) return
+  
+  // Créer une copie de la structure pour la prévisualisation
+  const creature = props.creature
+  const cx = creature.getCenterX()
+  const cy = creature.getCenterY()
+  
+  // Copier les nodes avec positions relatives au centre
+  previewNodes.value = creature.nodes.map(n => ({
+    x: n.x - cx,
+    y: n.y - cy,
+    baseX: n.x - cx,
+    baseY: n.y - cy
+  }))
+  
+  // Copier les liens
+  previewLinks.value = creature.links.map(l => ({
+    a: creature.nodes.indexOf(l.nodeA),
+    b: creature.nodes.indexOf(l.nodeB),
+    length: l.targetLength
+  }))
+  
+  currentPoseIndex.value = 0
+  drawPreview()
+}
+
+function drawPreview() {
+  const canvas = previewCanvas.value
+  if (!canvas || !props.creature) return
+  
+  const ctx = canvas.getContext('2d')
+  const width = canvas.width
+  const height = canvas.height
+  const creature = props.creature
+  
+  // Clear
+  ctx.fillStyle = '#0d3a52'
+  ctx.fillRect(0, 0, width, height)
+  
+  // Calculer le centre et l'échelle
+  const centerX = width / 2
+  const centerY = height / 2
+  
+  // Calculer les positions avec la pose actuelle
+  const poses = creature.motorClock?.poses || []
+  const pose = poses[currentPoseIndex.value] || []
+  const articulations = creature.articulations || []
+  
+  // Appliquer la pose aux nodes de preview
+  applyPoseToPreview(pose, articulations)
+  
+  // Dessiner les liens
+  ctx.strokeStyle = `rgba(${creature.color.r}, ${creature.color.g}, ${creature.color.b}, 0.9)`
+  ctx.lineWidth = 3
+  
+  for (const link of previewLinks.value) {
+    const nodeA = previewNodes.value[link.a]
+    const nodeB = previewNodes.value[link.b]
+    if (!nodeA || !nodeB) continue
+    
+    ctx.beginPath()
+    ctx.moveTo(centerX + nodeA.x, centerY + nodeA.y)
+    ctx.lineTo(centerX + nodeB.x, centerY + nodeB.y)
+    ctx.stroke()
+  }
+  
+  // Dessiner les nodes
+  ctx.fillStyle = `rgb(${creature.color.r}, ${creature.color.g}, ${creature.color.b})`
+  
+  for (let i = 0; i < previewNodes.value.length; i++) {
+    const node = previewNodes.value[i]
+    
+    // Vérifier si c'est une articulation
+    const isArticulation = previewLinks.value.filter(l => l.a === i || l.b === i).length >= 2
+    
+    ctx.beginPath()
+    ctx.arc(centerX + node.x, centerY + node.y, isArticulation ? 5 : 3, 0, Math.PI * 2)
+    ctx.fill()
+    
+    // Halo pour les articulations
+    if (isArticulation) {
+      ctx.strokeStyle = 'rgba(0, 255, 255, 0.5)'
+      ctx.lineWidth = 2
+      ctx.stroke()
+    }
+  }
+  
+  // Indicateur de contraction pour chaque articulation
+  let artIdx = 0
+  for (let i = 0; i < previewNodes.value.length; i++) {
+    const connectedLinks = previewLinks.value.filter(l => l.a === i || l.b === i)
+    if (connectedLinks.length >= 2 && artIdx < pose.length) {
+      const node = previewNodes.value[i]
+      const contraction = pose[artIdx] || 0.5
+      
+      // Petit indicateur de contraction
+      ctx.fillStyle = getContractionColor(contraction)
+      ctx.font = '10px Arial'
+      ctx.fillText(`${Math.floor(contraction * 100)}%`, centerX + node.x + 8, centerY + node.y - 5)
+      
+      artIdx++
+    }
+  }
+}
+
+function applyPoseToPreview(pose, articulations) {
+  // Reset aux positions de base
+  for (const node of previewNodes.value) {
+    node.x = node.baseX
+    node.y = node.baseY
+  }
+  
+  // Appliquer les contractions (effet visuel simplifié)
+  let artIdx = 0
+  for (let i = 0; i < previewNodes.value.length; i++) {
+    const connectedLinks = previewLinks.value.filter(l => l.a === i || l.b === i)
+    
+    if (connectedLinks.length >= 2 && artIdx < pose.length) {
+      const contraction = pose[artIdx] || 0.5
+      const contractionFactor = (contraction - 0.5) * 0.4
+      
+      // Pour chaque paire de liens connectés, ajuster l'angle
+      for (let j = 0; j < connectedLinks.length; j++) {
+        const link = connectedLinks[j]
+        const otherNodeIdx = link.a === i ? link.b : link.a
+        const otherNode = previewNodes.value[otherNodeIdx]
+        const centerNode = previewNodes.value[i]
+        
+        if (!otherNode || !centerNode) continue
+        
+        // Direction du centre vers l'extrémité
+        const dx = otherNode.x - centerNode.x
+        const dy = otherNode.y - centerNode.y
+        const dist = Math.sqrt(dx * dx + dy * dy)
+        
+        if (dist < 0.1) continue
+        
+        // Rotation selon la contraction
+        const angle = Math.atan2(dy, dx)
+        const sign = j % 2 === 0 ? 1 : -1
+        const newAngle = angle + contractionFactor * sign * 0.5
+        
+        otherNode.x = centerNode.x + Math.cos(newAngle) * dist
+        otherNode.y = centerNode.y + Math.sin(newAngle) * dist
+      }
+      
+      artIdx++
+    }
+  }
+}
+
+function togglePlay() {
+  if (isPlaying.value) {
+    stopAnimation()
+  } else {
+    startAnimation()
+  }
+}
+
+function startAnimation() {
+  isPlaying.value = true
+  previewTime.value = 0
+  animate()
+}
+
+function stopAnimation() {
+  isPlaying.value = false
+  if (animationFrame.value) {
+    cancelAnimationFrame(animationFrame.value)
+    animationFrame.value = null
+  }
+}
+
+function animate() {
+  if (!isPlaying.value || !props.creature) return
+  
+  const poses = props.creature.motorClock?.poses || []
+  if (poses.length === 0) return
+  
+  // Avancer le temps
+  previewTime.value += previewSpeed.value * 2
+  
+  // Calculer la pose interpolée
+  const period = props.creature.motorClock?.period || 100
+  const cyclePos = (previewTime.value % period) / period
+  const poseFloat = cyclePos * poses.length
+  const poseIdx = Math.floor(poseFloat) % poses.length
+  
+  currentPoseIndex.value = poseIdx
+  drawPreview()
+  
+  animationFrame.value = requestAnimationFrame(animate)
+}
+
+function prevPose() {
+  const poses = props.creature?.motorClock?.poses || []
+  if (poses.length === 0) return
+  currentPoseIndex.value = (currentPoseIndex.value - 1 + poses.length) % poses.length
+}
+
+function nextPose() {
+  const poses = props.creature?.motorClock?.poses || []
+  if (poses.length === 0) return
+  currentPoseIndex.value = (currentPoseIndex.value + 1) % poses.length
+}
+
+function selectPose(index) {
+  currentPoseIndex.value = index
+  if (isPlaying.value) {
+    stopAnimation()
+  }
+}
+
+function resetPreview() {
+  stopAnimation()
+  currentPoseIndex.value = 0
+  previewTime.value = 0
+  initPreview()
+}
+
+function getContractionColor(value) {
+  // Rouge (contracté) → Bleu (relâché)
+  const r = Math.floor(255 * value)
+  const b = Math.floor(255 * (1 - value))
+  return `rgb(${r}, 100, ${b})`
+}
+
+onUnmounted(() => {
+  stopAnimation()
 })
 </script>
 
@@ -659,4 +795,77 @@ watch(isOpen, (newVal) => {
 
   &:hover
     background: rgba(30, 70, 100, 0.5)
+
+// Visualiseur de poses
+.pose-visualizer
+  background: rgba(10, 40, 60, 0.6)
+  border: 1px solid rgba(0, 200, 255, 0.3)
+  border-radius: 8px
+  padding: 12px
+
+.visualizer-header
+  font-size: 12px
+  font-weight: 600
+
+.visualizer-container
+  position: relative
+  display: flex
+  justify-content: center
+  
+.preview-canvas
+  background: #0d3a52
+  border: 1px solid rgba(0, 200, 255, 0.4)
+  border-radius: 6px
+
+.pose-indicator
+  position: absolute
+  bottom: 8px
+  right: 8px
+  background: rgba(0, 0, 0, 0.6)
+  padding: 2px 8px
+  border-radius: 4px
+  font-size: 11px
+  color: #90d5ff
+
+// Grille des poses
+.poses-grid
+  display: flex
+  flex-wrap: wrap
+  gap: 8px
+  margin-top: 8px
+
+.pose-card
+  background: rgba(20, 60, 90, 0.5)
+  border: 1px solid rgba(100, 200, 255, 0.3)
+  border-radius: 6px
+  padding: 8px
+  min-width: 80px
+  cursor: pointer
+  transition: all 0.2s
+  
+  &:hover
+    background: rgba(30, 80, 120, 0.6)
+    border-color: rgba(100, 200, 255, 0.6)
+  
+  &.active
+    background: rgba(0, 150, 200, 0.3)
+    border-color: rgba(0, 255, 255, 0.8)
+    box-shadow: 0 0 8px rgba(0, 255, 255, 0.3)
+
+.pose-title
+  font-size: 10px
+  color: #90d5ff
+  margin-bottom: 4px
+  text-align: center
+
+.pose-contractions
+  display: flex
+  flex-direction: column
+  gap: 2px
+
+.contraction-bar
+  height: 4px
+  border-radius: 2px
+  min-width: 5px
+  transition: width 0.2s
 </style>

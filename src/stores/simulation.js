@@ -44,7 +44,7 @@ export const useSimulationStore = defineStore('simulation', () => {
     }
 
     const avgSize = creatures.value.reduce((sum, c) => sum + c.mass, 0) / creatures.value.length
-    const avgSegments = creatures.value.reduce((sum, c) => sum + c.segments.length, 0) / creatures.value.length
+    const avgSegments = creatures.value.reduce((sum, c) => sum + c.muscles.length, 0) / creatures.value.length
     const avgSpeed =
       creatures.value.reduce((sum, c) => {
         let totalVel = 0
